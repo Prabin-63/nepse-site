@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { useUIStore } from './store';
 import Sidebar from './components/layout/Sidebar';
 import TopBar from './components/layout/TopBar';
+import SearchOverlay from './components/layout/SearchOverlay';
+import BrokerDetailModal from './components/shared/BrokerDetailModal';
 import Dashboard from './pages/Dashboard';
 import LiveMarket from './pages/LiveMarket';
 import StockDetail from './pages/StockDetail';
@@ -61,7 +63,7 @@ export default function App() {
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
-      return `${r}, ${g}, ${b}`;
+      return `${r} ${g} ${b}`;
     };
     root.style.setProperty('--brand-cyan', hexToRgb(accentColor));
   }, [accentColor]);
@@ -70,6 +72,8 @@ export default function App() {
     <div className="min-h-screen bg-bg-base text-text-primary selection:bg-brand-cyan/20">
       <Sidebar />
       <TopBar />
+      <SearchOverlay />
+      <BrokerDetailModal />
       
       <main className={`transition-all duration-300 pt-16 min-h-screen ${sidebarOpen ? 'lg:pl-60 pl-0' : 'lg:pl-[68px] pl-0'}`}>
         {/* Mobile Overlay */}

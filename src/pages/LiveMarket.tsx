@@ -1,40 +1,72 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Filter, Star, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { seedCompanies } from '../data/seed';
 import { fetchTodayPrices } from '../services/api';
 import { formatNepaliNumber, formatPercent, formatVolume, formatNPR, getPriceColorClass } from '../utils';
-import { useLiveTrading } from '../hooks/useNepseData';
+import { useLiveTrading, useCompanyList } from '../hooks/useNepseData';
 import { useWatchlistStore } from '../store';
 
 type SortField = 'symbol' | 'ltp' | 'changePercent' | 'volume' | 'turnover' | 'marketCap';
 type SortDir = 'asc' | 'desc';
 
+const normalizeSector = (name: string) => {
+  const s = (name || '').toLowerCase().trim();
+  if (s.includes('banking') || s.includes('commercial bank')) return 'Banking';
+  if (s.includes('hydro power') || s.includes('hydropower')) return 'Hydro Power';
+  if (s.includes('hotels') || s.includes('hotel')) return 'Hotels And Tourism';
+  if (s.includes('manufacturing')) return 'Manufacturing And Processing';
+  if (s.includes('development bank')) return 'Development Bank';
+  if (s.includes('non life') || s.includes('non-life')) return 'Non Life Insurance';
+  if (s.includes('microfinance') || s.includes('micro finance')) return 'Microfinance';
+  if (s.includes('mutual fund')) return 'Mutual Fund';
+  
+  // Return Title Case for others
+  return name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 export default function LiveMarket() {
   const navigate = useNavigate();
-  const { data: rawData, isLoading, isError } = useLiveTrading();
+  const { data: rawData, isLoading: loadingLive, isError } = useLiveTrading();
+  const { data: companies, isLoading: loadingCompanies } = useCompanyList();
   
   const stocks = useMemo(() => {
     if (!rawData) return [];
-    return rawData.map((s: any) => ({
-      symbol: s.symbol, companyName: s.securityName || s.companyName || s.symbol,
-      companyNameNepali: '', sector: s.sectorName || s.sector || '',
+    
+    const companyData = companies || [];
+    const sectorMap = new Map();
+    companyData.forEach((c: any) => sectorMap.set(c.symbol, c.sectorName));
+
+    const seedMap = new Map();
+    seedCompanies.forEach(c => seedMap.set(c.symbol, c));
+
+    return rawData.map((s: any) => {
+      const scripSector = sectorMap.get(s.symbol) || s.sectorName || s.sector || '';
+      const seedFallback = seedMap.get(s.symbol) || {};
+      
+      return {
+        symbol: s.symbol, companyName: s.securityName || s.companyName || s.symbol,
+        companyNameNepali: '', sector: normalizeSector(scripSector),
       ltp: s.lastTradedPrice || s.ltp, previousClose: s.previousClose,
       change: (s.lastTradedPrice || s.ltp) - s.previousClose,
       changePercent: s.percentageChange || 0,
       open: s.openPrice, high: s.highPrice, low: s.lowPrice,
       volume: s.totalTradeQuantity || s.volume || 0,
       turnover: s.totalTradeValue || s.totalTurnover || s.turnover || 0,
-      marketCap: s.marketCap || 0,
-      week52High: s.fiftyTwoWeekHigh || 0, week52Low: s.fiftyTwoWeekLow || 0,
-      eps: s.eps || 0, peRatio: s.peRatio || 0, bookValue: s.bookValue || 0,
-      pbRatio: s.pbRatio || 0, dividendYield: s.dividendYield || 0,
-    }));
-  }, [rawData]);
+      marketCap: s.marketCap || seedFallback.marketCap || 0,
+      week52High: s.fiftyTwoWeekHigh || seedFallback.week52High || 0, week52Low: s.fiftyTwoWeekLow || seedFallback.week52Low || 0,
+      eps: s.eps || seedFallback.eps || 0, peRatio: s.peRatio || seedFallback.peRatio || 0, bookValue: s.bookValue || seedFallback.bookValue || 0,
+      pbRatio: s.pbRatio || seedFallback.pbRatio || 0, dividendYield: s.dividendYield || seedFallback.dividendYield || 0,
+      };
+    });
+  }, [rawData, companies]);
 
+  const isLoading = loadingLive || loadingCompanies;
+
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [sectorFilter, setSectorFilter] = useState('All');
+  const [sectorFilter, setSectorFilter] = useState(searchParams.get('sector') || 'All');
   const [viewFilter, setViewFilter] = useState<'all' | 'gainers' | 'losers'>('all');
   const [sortField, setSortField] = useState<SortField>('symbol');
   const [sortDir, setSortDir] = useState<SortDir>('asc');

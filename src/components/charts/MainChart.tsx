@@ -47,7 +47,7 @@ function MainChart({ data, chartType, overlays, height = 540 }: Props) {
 
     try {
       const formatColor = (val: string, fallback: string) => 
-        val ? `rgb(${val})` : fallback;
+        val ? `rgb(${val.split(' ').filter(Boolean).join(', ')})` : fallback;
 
       const rs = getComputedStyle(document.documentElement);
       const bgColor = formatColor(rs.getPropertyValue('--bg-surface').trim(), CHART_COLORS.bg);

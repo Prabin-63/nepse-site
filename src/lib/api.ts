@@ -43,4 +43,8 @@ export const nepseApi = {
 
   // News
   getNews: () => apiFetch<any[]>("/api/news/"),
+
+  // Brokers
+  getBrokers: () => apiFetch<any[]>("/api/brokers/"),
+  getBrokerDetail: (id: string) => apiFetch<any>(`/api/brokers/${id}`),
 };

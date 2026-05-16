@@ -3,51 +3,115 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Star, Bell, BarChart2, FileText, Activity, Users, Info, 
-  MessageSquare, Layers, TrendingUp, TrendingDown, Clock, Globe 
+  MessageSquare, Layers, TrendingUp, TrendingDown, Clock, Globe, Search
 } from 'lucide-react';
-import { useMarketStore, useWatchlistStore } from '../store';
+import { useMarketStore, useWatchlistStore, useUIStore } from '../store';
 import { seedCompanies } from '../data/seed';
-import { formatNepaliNumber, formatPercent, formatNPR, formatVolume, getPriceColorClass } from '../utils';
+import { 
+  useStockPrice, useStockDetail, useStockChart, useCompanyFloorsheet, 
+  useCompanyList, useBrokers, useLiveTrading 
+} from '../hooks/useNepseData';
+import { 
+  formatNPR, formatPercent, getPriceColorClass, 
+  formatVolume, formatNepaliNumber, formatChange 
+} from '../utils';
 import { fetchSecurityDetail, fetchGraphData } from '../services/api';
 import CandlestickChart from '../components/charts/CandlestickChart';
 import { generateMockOHLCV } from '../utils/mockData';
 import TechnicalGauge from '../components/shared/TechnicalGauge';
 
 // Tab Components (to be implemented)
-const ChartTab = ({ symbol, data }: { symbol: string, data: any[] }) => (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex gap-2">
-        {['1D', '1W', '1M', '3M', '6M', '1Y', 'All'].map(tf => (
-          <button key={tf} className={`px-3 py-1 text-xs rounded border transition-colors ${tf === '1M' ? 'bg-brand-cyan text-bg-base border-brand-cyan' : 'border-bg-border text-text-secondary hover:bg-bg-elevated'}`}>
-            {tf}
-          </button>
-        ))}
+const ChartTab = ({ symbol, data }: { symbol: string, data: any[] }) => {
+  const [timeframe, setTimeframe] = useState('1M');
+
+  const filteredData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    // Find the latest date in the dataset (time is in seconds for lightweight-charts)
+    const latestTime = data.reduce((max, d) => {
+      const ts = typeof d.time === 'number' ? d.time * 1000 : new Date(d.time || d.date).getTime();
+      return Math.max(max, ts);
+    }, 0);
+    
+    const latestDate = new Date(latestTime || Date.now());
+    let cutoff = new Date(latestDate.getTime());
+    
+    switch (timeframe) {
+      case '1D': 
+        // We only have daily historical data from the API.
+        // For 1D, we generate a synthetic intraday chart to demonstrate functionality.
+        if (data.length === 0) return [];
+        const latest = data[data.length - 1];
+        const intraday = [];
+        let curr = latest.open || latest.close;
+        const vol = latest.high - latest.low || curr * 0.01;
+        for (let i = 0; i < 60; i++) { // 60 minutes of data
+          const open = curr;
+          const close = open + (Math.random() - 0.5) * vol * 0.5;
+          const high = Math.max(open, close) + Math.random() * vol * 0.2;
+          const low = Math.min(open, close) - Math.random() * vol * 0.2;
+          curr = close;
+          intraday.push({
+            time: latest.time - (60 - i) * 60, // past 60 mins
+            open, high, low, close,
+            volume: Math.floor(Math.random() * 1000)
+          });
+        }
+        return intraday;
+      case '1W': cutoff.setDate(latestDate.getDate() - 7); break;
+      case '1M': cutoff.setMonth(latestDate.getMonth() - 1); break;
+      case '3M': cutoff.setMonth(latestDate.getMonth() - 3); break;
+      case '6M': cutoff.setMonth(latestDate.getMonth() - 6); break;
+      case '1Y': cutoff.setFullYear(latestDate.getFullYear() - 1); break;
+      case '5Y': cutoff.setFullYear(latestDate.getFullYear() - 5); break;
+      case 'All': return data;
+      default: return data;
+    }
+    
+    return data.filter(d => {
+      const ts = typeof d.time === 'number' ? d.time * 1000 : new Date(d.time || d.date).getTime();
+      return ts >= cutoff.getTime();
+    });
+  }, [data, timeframe]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-2">
+          {['1D', '1W', '1M', '3M', '6M', '1Y', '5Y', 'All'].map(tf => (
+            <button 
+              key={tf} 
+              onClick={() => setTimeframe(tf)}
+              className={`px-3 py-1 text-xs rounded border transition-colors ${timeframe === tf ? 'bg-brand-cyan text-bg-base border-brand-cyan' : 'border-bg-border text-text-secondary hover:bg-bg-elevated'}`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button className="btn-secondary py-1 px-3 text-xs">Indicators</button>
+          <button className="btn-secondary py-1 px-3 text-xs">Draw</button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button className="btn-secondary py-1 px-3 text-xs">Indicators</button>
-        <button className="btn-secondary py-1 px-3 text-xs">Draw</button>
+      <div className="h-[500px] border border-bg-border/30 rounded-xl overflow-hidden bg-bg-base/30">
+        <CandlestickChart data={filteredData} />
       </div>
     </div>
-    <div className="h-[500px] border border-bg-border/30 rounded-xl overflow-hidden bg-bg-base/30">
-      <CandlestickChart data={data} />
-    </div>
-  </div>
-);
-const FundamentalsTab = ({ symbol }: { symbol: string }) => {
-  const stock = seedCompanies.find(s => s.symbol === symbol);
+  );
+};
+const FundamentalsTab = ({ apiStock }: { apiStock: any }) => {
   const rows = [
-    { label: 'Earnings Per Share (EPS)', value: stock?.eps || '—', note: 'Net profit divided by total shares' },
-    { label: 'Price to Earnings (P/E)', value: stock?.peRatio || '—', note: 'Price per share / EPS' },
-    { label: 'Book Value Per Share', value: stock?.bookValue || '—', note: 'Net assets divided by shares' },
-    { label: 'Price to Book (P/B)', value: stock?.pbRatio || '—', note: 'Market price / Book value' },
-    { label: 'Dividend Yield', value: stock?.dividendYield ? `${stock.dividendYield}%` : '—', note: 'Annual dividend / current price' },
+    { label: 'Earnings Per Share (EPS)', value: apiStock?.eps || '—', note: 'Net profit divided by total shares' },
+    { label: 'Price to Earnings (P/E)', value: apiStock?.peRatio || '—', note: 'Price per share / EPS' },
+    { label: 'Book Value Per Share', value: apiStock?.bookValue || '—', note: 'Net assets divided by shares' },
+    { label: 'Price to Book (P/B)', value: apiStock?.pbRatio || '—', note: 'Market price / Book value' },
+    { label: 'Dividend Yield', value: apiStock?.dividendYield ? `${apiStock.dividendYield}%` : '—', note: 'Annual dividend / current price' },
     { label: 'Return on Equity (ROE)', value: '18.4%', note: 'Net profit / shareholder equity' },
     { label: 'Return on Assets (ROA)', value: '2.1%', note: 'Net income / total assets' },
     { label: 'Net Interest Margin', value: '3.8%', note: 'For banking sector' },
-    { label: 'Market Cap', value: formatNPR(stock?.marketCap || 0, true), note: 'Total market value' },
-    { label: '52-Week High', value: formatNepaliNumber(stock?.week52High || 0), note: '' },
-    { label: '52-Week Low', value: formatNepaliNumber(stock?.week52Low || 0), note: '' },
+    { label: 'Market Cap', value: formatNPR(apiStock?.marketCap || 0, true), note: 'Total market value' },
+    { label: '52-Week High', value: formatNepaliNumber(apiStock?.week52High || 0), note: '' },
+    { label: '52-Week Low', value: formatNepaliNumber(apiStock?.week52Low || 0), note: '' },
   ];
   return (
     <div className="space-y-6">
@@ -77,11 +141,12 @@ const FundamentalsTab = ({ symbol }: { symbol: string }) => {
     </div>
   );
 };
-import { useCompanyFloorsheet } from '../hooks/useNepseData';
+
 
 const FloorsheetTab = ({ symbol }: { symbol: string }) => {
   const { data: floorsheetData, isLoading } = useCompanyFloorsheet(symbol);
   const trades = floorsheetData || [];
+  const { setSelectedBrokerId } = useUIStore();
   
   if (isLoading) return <div className="p-8 text-center text-text-muted">Loading floorsheet...</div>;
 
@@ -106,8 +171,22 @@ const FloorsheetTab = ({ symbol }: { symbol: string }) => {
               <tr key={t.contractId} className="border-b border-bg-border/20 hover:bg-bg-elevated/40 transition-colors">
                 <td className="table-cell text-text-muted font-jetbrains text-xs">#{t.contractId}</td>
                 <td className="table-cell font-jetbrains text-xs">{t.contractTime}</td>
-                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bull-green/10 text-bull-green text-xs font-bold">{t.buyerMemberId}</span></td>
-                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bear-red/10 text-bear-red text-xs font-bold">{t.sellerMemberId}</span></td>
+                <td className="table-cell">
+                  <span 
+                    onClick={() => setSelectedBrokerId(t.buyerMemberId)}
+                    className="px-1.5 py-0.5 rounded bg-bull-green/10 text-bull-green text-xs font-bold cursor-pointer hover:bg-bull-green/20 transition-colors"
+                  >
+                    {t.buyerMemberId}
+                  </span>
+                </td>
+                <td className="table-cell">
+                  <span 
+                    onClick={() => setSelectedBrokerId(t.sellerMemberId)}
+                    className="px-1.5 py-0.5 rounded bg-bear-red/10 text-bear-red text-xs font-bold cursor-pointer hover:bg-bear-red/20 transition-colors"
+                  >
+                    {t.sellerMemberId}
+                  </span>
+                </td>
                 <td className="table-cell text-right font-jetbrains">{t.contractQuantity?.toLocaleString()}</td>
                 <td className="table-cell text-right font-jetbrains text-text-secondary">{formatNepaliNumber(t.contractRate)}</td>
                 <td className="table-cell text-right font-jetbrains text-text-primary">{formatNepaliNumber((t.contractQuantity || 0) * (t.contractRate || 0))}</td>
@@ -121,50 +200,132 @@ const FloorsheetTab = ({ symbol }: { symbol: string }) => {
   );
 };
 const BrokerActivityTab = ({ symbol }: { symbol: string }) => {
-  const brokers = [
-    { id: '58', name: 'Naasa Securities', buy: 245000, sell: 120000 },
-    { id: '45', name: 'Imperial Securities', buy: 180000, sell: 95000 },
-    { id: '34', name: 'Vision Securities', buy: 80000, sell: 310000 },
-    { id: '12', name: 'ABC Securities', buy: 150000, sell: 160000 },
-    { id: '28', name: 'Shree Krishna', buy: 210000, sell: 75000 },
-  ];
-  const maxVal = Math.max(...brokers.map(b => Math.max(b.buy, b.sell)));
+  const { data: floorsheetData, isLoading: loadingFloorsheet } = useCompanyFloorsheet(symbol);
+  const { data: brokers, isLoading: loadingBrokers } = useBrokers();
+  const { setSelectedBrokerId } = useUIStore();
+  const [search, setSearch] = useState('');
+  
+  const brokerStats = useMemo(() => {
+    if (!floorsheetData) return [];
+    
+    const stats: Record<string, { id: string, name: string, buy: number, sell: number, buyQty: number, sellQty: number }> = {};
+    const brokerMap: Record<string, string> = {};
+    if (brokers) {
+      brokers.forEach((b: any) => brokerMap[b.id] = b.name);
+    }
+    
+    floorsheetData.forEach((t: any) => {
+      const bid = t.buyerMemberId;
+      const sid = t.sellerMemberId;
+      const amount = (t.contractQuantity || 0) * (t.contractRate || 0);
+      const qty = t.contractQuantity || 0;
+      
+      if (!stats[bid]) stats[bid] = { id: bid, name: brokerMap[bid] || 'Unknown', buy: 0, sell: 0, buyQty: 0, sellQty: 0 };
+      if (!stats[sid]) stats[sid] = { id: sid, name: brokerMap[sid] || 'Unknown', buy: 0, sell: 0, buyQty: 0, sellQty: 0 };
+      
+      stats[bid].buy += amount;
+      stats[bid].buyQty += qty;
+      stats[sid].sell += amount;
+      stats[sid].sellQty += qty;
+    });
+    
+    return Object.values(stats)
+      .sort((a, b) => (b.buy + b.sell) - (a.buy + a.sell));
+  }, [floorsheetData, brokers]);
+
+  const filteredStats = useMemo(() => {
+    const s = search.toLowerCase();
+    return brokerStats.filter(b => 
+      b.id.toString().includes(s) || 
+      b.name.toLowerCase().includes(s)
+    );
+  }, [brokerStats, search]);
+
+  if (loadingFloorsheet || loadingBrokers) return <div className="p-8 text-center text-text-muted italic">Processing real-time broker activity...</div>;
+
+  const totalBuy = filteredStats.reduce((acc, b) => acc + b.buy, 0);
+  const totalSell = filteredStats.reduce((acc, b) => acc + b.sell, 0);
+
   return (
     <div className="space-y-6">
-      <h4 className="font-syne font-bold">Top Broker Activity — {symbol}</h4>
-      <div className="space-y-4">
-        {brokers.map(b => {
-          const net = b.buy - b.sell;
-          return (
-            <div key={b.id} className="card p-4 bg-bg-base/30">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <span className="font-bold text-text-primary">{b.name}</span>
-                  <span className="text-xs text-text-muted ml-2">#{b.id}</span>
-                </div>
-                <span className={`font-jetbrains text-sm font-bold ${net >= 0 ? 'text-bull-green' : 'text-bear-red'}`}>
-                  Net: {net >= 0 ? '+' : ''}{formatNepaliNumber(net)}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] w-8 text-bull-green font-bold uppercase">Buy</span>
-                  <div className="flex-1 h-2 bg-bg-border/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-bull-green rounded-full" style={{ width: `${(b.buy / maxVal) * 100}%` }} />
-                  </div>
-                  <span className="font-jetbrains text-xs text-text-secondary w-24 text-right">{formatNPR(b.buy, true)}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] w-8 text-bear-red font-bold uppercase">Sell</span>
-                  <div className="flex-1 h-2 bg-bg-border/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-bear-red rounded-full" style={{ width: `${(b.sell / maxVal) * 100}%` }} />
-                  </div>
-                  <span className="font-jetbrains text-xs text-text-secondary w-24 text-right">{formatNPR(b.sell, true)}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h4 className="font-syne font-bold">Broker Trade Analysis — {symbol}</h4>
+          <span className="text-[10px] text-text-muted uppercase font-bold">Comprehensive breakdown for the current session</span>
+        </div>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input 
+            type="text" placeholder="Search broker or name..." value={search} onChange={e => setSearch(e.target.value)}
+            className="input-field pl-8 py-1.5 text-xs w-full md:w-64" 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card p-4 bg-bull-green/5 border-bull-green/20">
+          <div className="text-[10px] uppercase text-text-muted mb-1">Cumulative Buy</div>
+          <div className="text-lg font-jetbrains font-bold text-bull-green">{formatNPR(totalBuy, true)}</div>
+        </div>
+        <div className="card p-4 bg-bear-red/5 border-bear-red/20">
+          <div className="text-[10px] uppercase text-text-muted mb-1">Cumulative Sell</div>
+          <div className="text-lg font-jetbrains font-bold text-bear-red">{formatNPR(totalSell, true)}</div>
+        </div>
+        <div className="card p-4 bg-brand-cyan/5 border-brand-cyan/20">
+          <div className="text-[10px] uppercase text-text-muted mb-1">Session Net Flow</div>
+          <div className={`text-lg font-jetbrains font-bold ${totalBuy - totalSell >= 0 ? 'text-bull-green' : 'text-bear-red'}`}>
+            {totalBuy - totalSell >= 0 ? '+' : ''}{formatNPR(totalBuy - totalSell, true)}
+          </div>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-bg-base/30">
+                <th className="table-header">Broker</th>
+                <th className="table-header text-right">Buy Qty</th>
+                <th className="table-header text-right">Buy Amount</th>
+                <th className="table-header text-right">Sell Qty</th>
+                <th className="table-header text-right">Sell Amount</th>
+                <th className="table-header text-right">Net Flow</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStats.map(b => {
+                const net = b.buy - b.sell;
+                return (
+                  <tr key={b.id} className="border-b border-bg-border/20 hover:bg-bg-elevated/40 transition-colors">
+                    <td className="table-cell">
+                      <div className="flex flex-col">
+                        <span className="text-text-primary font-bold text-xs">{b.name}</span>
+                        <button 
+                          onClick={() => setSelectedBrokerId(b.id)}
+                          className="w-max mt-1 px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-bold text-[9px] hover:text-brand-cyan transition-colors"
+                        >
+                          ID #{b.id}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="table-cell text-right font-jetbrains">{b.buyQty.toLocaleString()}</td>
+                    <td className="table-cell text-right font-jetbrains text-bull-green">{formatNPR(b.buy, true)}</td>
+                    <td className="table-cell text-right font-jetbrains">{b.sellQty.toLocaleString()}</td>
+                    <td className="table-cell text-right font-jetbrains text-bear-red">{formatNPR(b.sell, true)}</td>
+                    <td className={`table-cell text-right font-jetbrains font-bold ${net >= 0 ? 'text-bull-green' : 'text-bear-red'}`}>
+                      {net >= 0 ? '+' : ''}{formatNPR(net, true)}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredStats.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-text-muted italic">No activity matching your search criteria.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -238,8 +399,40 @@ const NewsTab = ({ symbol }: { symbol: string }) => {
     </div>
   );
 };
-const PeersTab = ({ symbol, sector }: { symbol: string, sector: string }) => {
-  const peers = seedCompanies.filter(s => s.sector === sector && s.symbol !== symbol).slice(0, 8);
+const PeersTab = ({ symbol, sector, allStocks, companies }: { symbol: string, sector: string, allStocks: any[], companies: any[] }) => {
+  const sectorMap = useMemo(() => {
+    const map = new Map();
+    (companies || []).forEach((c: any) => map.set(c.symbol, c.sectorName));
+    return map;
+  }, [companies]);
+
+  const peers = useMemo(() => {
+    const seedMap = new Map();
+    seedCompanies.forEach(c => seedMap.set(c.symbol, c));
+
+    return (allStocks || [])
+      .map((s: any) => {
+        const scripSector = sectorMap.get(s.symbol) || s.sectorName || s.sector;
+        const seedFallback = seedMap.get(s.symbol) || {};
+        return {
+          ...s,
+          sector: scripSector,
+          ltp: s.lastTradedPrice || s.ltp || 0,
+          changePercent: s.percentageChange || s.changePercent || 0,
+          marketCap: s.marketCap || seedFallback.marketCap || 0,
+          peRatio: s.peRatio || seedFallback.peRatio || 0,
+          eps: s.eps || seedFallback.eps || 0
+        };
+      })
+      .filter(s => {
+        if (!s.sector || !sector) return false;
+        const sSec = s.sector.toLowerCase().trim();
+        const targetSec = sector.toLowerCase().trim();
+        return (sSec.includes(targetSec) || targetSec.includes(sSec)) && s.symbol !== symbol;
+      })
+      .slice(0, 10);
+  }, [allStocks, sector, symbol, sectorMap]);
+
   return (
     <div className="space-y-4">
       <h4 className="font-syne font-bold">Peer Comparison — {sector}</h4>
@@ -270,8 +463,8 @@ const PeersTab = ({ symbol, sector }: { symbol: string, sector: string }) => {
     </div>
   );
 };
-const AIInsightTab = ({ symbol }: { symbol: string }) => {
-  const stock = seedCompanies.find(s => s.symbol === symbol);
+const AIInsightTab = ({ stock }: { stock: any }) => {
+  const symbol = stock?.symbol || '';
   const sentiment = (stock?.changePercent || 0) > 0 ? 'Bullish' : 'Bearish';
   const score = Math.min(100, Math.max(0, 50 + (stock?.changePercent || 0) * 5));
   return (
@@ -324,7 +517,7 @@ const tabs = [
   { id: 'ai', label: 'AI Insight', icon: MessageSquare },
 ];
 
-import { useStockPrice, useStockDetail, useStockChart } from '../hooks/useNepseData';
+
 
 export default function StockDetail() {
   const { symbol } = useParams<{ symbol: string }>();
@@ -335,6 +528,8 @@ export default function StockDetail() {
   const { data: priceData, isLoading: loadingPrice } = useStockPrice(safeSymbol);
   const { data: detailData, isLoading: loadingDetail } = useStockDetail(safeSymbol);
   const { data: graphData, isLoading: loadingChart } = useStockChart(safeSymbol);
+  const { data: liveTradingData } = useLiveTrading();
+  const { data: companies } = useCompanyList();
   
   const { watchlists, addToWatchlist, removeFromWatchlist } = useWatchlistStore();
   const watched = useMemo(() => watchlists.some(w => w.items.some(i => i.symbol === symbol)), [watchlists, symbol]);
@@ -347,42 +542,76 @@ export default function StockDetail() {
 
   if (loading) return <div className="p-8 text-center text-text-secondary"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-cyan mx-auto mb-4"></div>Loading security data...</div>;
 
+  const sdt = priceData?.securityDailyTradeDto || {};
+  const sec = priceData?.security || {};
+  const mockFundamentals = seedCompanies.find(s => s.symbol === safeSymbol) || {};
+
   const stock = {
     symbol: safeSymbol,
-    companyName: detailData?.securityName || priceData?.securityName || safeSymbol,
+    companyName: detailData?.securityName || sec.securityName || safeSymbol,
     companyNameNepali: detailData?.companyNameNepali || '',
-    sector: detailData?.sectorName || priceData?.sectorName || 'N/A',
-    ltp: priceData?.lastTradedPrice || 0,
-    previousClose: priceData?.previousClose || 0,
-    change: (priceData?.lastTradedPrice || 0) - (priceData?.previousClose || 0),
-    changePercent: (((priceData?.lastTradedPrice || 0) - (priceData?.previousClose || 0)) / (priceData?.previousClose || 1)) * 100,
-    open: priceData?.openPrice || 0,
-    high: priceData?.highPrice || 0,
-    low: priceData?.lowPrice || 0,
-    volume: priceData?.totalTradeQuantity || 0,
-    turnover: priceData?.totalTradeValue || priceData?.totalTurnover || 0,
+    sector: detailData?.sectorName || sec.companyId?.sectorMaster?.sectorDescription || 'N/A',
+    ltp: sdt.lastTradedPrice || 0,
+    previousClose: sdt.previousClose || 0,
+    change: (sdt.lastTradedPrice || 0) - (sdt.previousClose || 0),
+    changePercent: (((sdt.lastTradedPrice || 0) - (sdt.previousClose || 1)) / (sdt.previousClose || 1)) * 100,
+    open: sdt.openPrice || 0,
+    high: sdt.highPrice || 0,
+    low: sdt.lowPrice || 0,
+    volume: sdt.totalTradeQuantity || 0,
+    turnover: sdt.totalTradeValue || priceData?.totalTurnover || 0,
     marketCap: priceData?.marketCapitalization || detailData?.marketCap || 0,
-    week52High: priceData?.fiftyTwoWeekHigh || detailData?.fiftyTwoWeekHigh || 0,
-    week52Low: priceData?.fiftyTwoWeekLow || detailData?.fiftyTwoWeekLow || 0,
-    eps: detailData?.eps,
-    peRatio: detailData?.peRatio,
-    bookValue: detailData?.bookValue,
-    pbRatio: detailData?.pbRatio,
-    dividendYield: detailData?.dividendYield,
+    week52High: sdt.fiftyTwoWeekHigh || detailData?.fiftyTwoWeekHigh || 0,
+    week52Low: sdt.fiftyTwoWeekLow || detailData?.fiftyTwoWeekLow || 0,
+    eps: mockFundamentals.eps,
+    peRatio: mockFundamentals.peRatio,
+    bookValue: mockFundamentals.bookValue,
+    pbRatio: mockFundamentals.pbRatio,
+    dividendYield: mockFundamentals.dividendYield,
   };
 
   const rawGraphData = graphData?.content || (Array.isArray(graphData) ? graphData : []);
-  const chartData = rawGraphData.length > 0 ? rawGraphData.map((d: any) => {
-    const dateStr = (d.businessDate || d.date || '').split('T')[0];
-    return {
-      time: new Date(dateStr).getTime() / 1000,
-      open: d.openPrice ?? d.open ?? d.closePrice ?? d.value ?? 0,
-      high: d.highPrice ?? d.high ?? d.closePrice ?? d.value ?? 0,
-      low: d.lowPrice ?? d.low ?? d.closePrice ?? d.value ?? 0,
-      close: d.closePrice ?? d.close ?? d.value ?? 0,
-      volume: d.totalTradedQuantity ?? d.volume ?? 0,
-    };
-  }).sort((a: any, b: any) => a.time - b.time) : generateMockOHLCV(safeSymbol, 180, stock.ltp || 1000);
+  let chartData: any[] = [];
+  if (rawGraphData.length > 0) {
+    const sortedData = [...rawGraphData].sort((a: any, b: any) => {
+      const timeA = new Date((a.businessDate || a.date || '').split('T')[0]).getTime();
+      const timeB = new Date((b.businessDate || b.date || '').split('T')[0]).getTime();
+      return timeA - timeB;
+    });
+
+    chartData = sortedData.map((d: any, index: number) => {
+      const dateStr = (d.businessDate || d.date || '').split('T')[0];
+      const close = d.closePrice ?? d.close ?? d.value ?? 0;
+      
+      let open = d.openPrice ?? d.open;
+      const prevClose = index > 0 
+        ? (sortedData[index - 1].closePrice ?? sortedData[index - 1].close ?? sortedData[index - 1].value ?? close) 
+        : undefined;
+
+      if (open === undefined) {
+        if (prevClose !== undefined) {
+          // If we have yesterday's close, that's our open
+          open = prevClose;
+        } else {
+          // If this is the first day, approximate open
+          const h = d.highPrice ?? d.high ?? close;
+          const l = d.lowPrice ?? d.low ?? close;
+          open = (h + l) / 2;
+        }
+      }
+      
+      return {
+        time: new Date(dateStr).getTime() / 1000,
+        open,
+        high: d.highPrice ?? d.high ?? close,
+        low: d.lowPrice ?? d.low ?? close,
+        close,
+        volume: d.totalTradedQuantity ?? d.volume ?? 0,
+      };
+    });
+  } else {
+    chartData = generateMockOHLCV(safeSymbol, 180, stock.ltp || 1000);
+  }
 
   if (!stock.ltp && !loadingPrice) return <div className="p-8 text-center text-text-secondary">Stock {symbol} not found or no data available.</div>;
 
@@ -500,13 +729,13 @@ export default function StockDetail() {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'chart' && <ChartTab symbol={stock.symbol} data={chartData} />}
-              {activeTab === 'fundamentals' && <FundamentalsTab symbol={stock.symbol} />}
+              {activeTab === 'fundamentals' && <FundamentalsTab apiStock={stock} />}
               {activeTab === 'floorsheet' && <FloorsheetTab symbol={stock.symbol} />}
               {activeTab === 'broker' && <BrokerActivityTab symbol={stock.symbol} />}
               {activeTab === 'technicals' && <TechnicalsTab symbol={stock.symbol} />}
               {activeTab === 'news' && <NewsTab symbol={stock.symbol} />}
-              {activeTab === 'peers' && <PeersTab symbol={stock.symbol} sector={stock.sector} />}
-              {activeTab === 'ai' && <AIInsightTab symbol={stock.symbol} />}
+              {activeTab === 'peers' && <PeersTab symbol={stock.symbol} sector={stock.sector} allStocks={liveTradingData || []} companies={companies || []} />}
+              {activeTab === 'ai' && <AIInsightTab stock={stock} />}
             </motion.div>
           </AnimatePresence>
         </div>

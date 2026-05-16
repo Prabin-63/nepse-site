@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Briefcase, Plus, TrendingUp, TrendingDown, PieChart, History, 
-  Trash2, Edit3, ArrowUpRight, ArrowDownRight, DollarSign, Wallet
+  Trash2, Edit3, ArrowUpRight, ArrowDownRight, Banknote, Wallet
 } from 'lucide-react';
 import { usePortfolioStore } from '../store';
 import { formatNPR, formatPercent, getPriceColorClass, formatNepaliNumber } from '../utils';
@@ -92,7 +92,7 @@ export default function Portfolio() {
         </div>
         <div className="card p-5 border-l-4 border-brand-gold">
           <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1">
-            <DollarSign size={12} className="text-brand-gold" /> Daily Change
+            <Banknote size={12} className="text-brand-gold" /> Daily Change
           </div>
           <div className="font-jetbrains text-2xl font-bold text-bull-green">+Rs. 12,450</div>
           <div className="text-xs text-bull-green font-bold mt-1">↑ 1.25%</div>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, TrendingDown, BarChart3, Volume2, DollarSign,
+  TrendingUp, TrendingDown, BarChart3, Volume2, Banknote,
   Calendar, Zap, Activity, Flame, ChevronRight, Sparkles, Eye
 } from 'lucide-react';
 import { useDashboard } from '../hooks/useNepseData';
@@ -82,8 +82,8 @@ function DashboardSkeleton() {
 }
 
 /* ── Mover Card ────────────────────────────────── */
-function MoverCard({ stock, rank, type, onClick }: { stock: any; rank: number; type: 'gainer' | 'loser' | 'volume'; onClick: () => void }) {
-  const borderColor = type === 'gainer' ? 'border-l-bull-green' : type === 'loser' ? 'border-l-bear-red' : 'border-l-brand-cyan';
+function MoverCard({ stock, rank, type, onClick }: { stock: any; rank: number; type: 'gainer' | 'loser' | 'volume' | 'turnover'; onClick: () => void }) {
+  const borderColor = type === 'gainer' ? 'border-l-bull-green' : type === 'loser' ? 'border-l-bear-red' : type === 'turnover' ? 'border-l-brand-gold' : 'border-l-brand-cyan';
   const rankColors = ['bg-brand-gold text-bg-base', 'bg-text-secondary text-bg-base', 'bg-brand-violet/60 text-white'];
   const rankBg = rank <= 3 ? rankColors[rank - 1] : 'bg-bg-border text-text-muted';
 
@@ -106,6 +106,8 @@ function MoverCard({ stock, rank, type, onClick }: { stock: any; rank: number; t
       <div className="text-right shrink-0">
         {type === 'volume' ? (
           <div className="font-jetbrains text-sm font-bold text-brand-cyan">{formatVolume(stock.shareTraded || stock.totalTradeQuantity || 0)}</div>
+        ) : type === 'turnover' ? (
+          <div className="font-jetbrains text-sm font-bold text-brand-gold">{formatNPR(stock.turnover || stock.totalTradeValue || 0, true)}</div>
         ) : (
           <>
             <div className="font-jetbrains text-sm font-medium text-text-primary">Rs. {formatNepaliNumber(stock.ltp || stock.lastTradedPrice || 0)}</div>
@@ -139,7 +141,11 @@ export default function Dashboard() {
     const { nepse_index, market_summary, top_gainers, top_losers, top_turnover, top_volume, sector_indices, live_market, events: apiEvents } = data;
     const nepseIdx = nepse_index?.find((i: any) => i.index === 'NEPSE Index') || { currentValue: 0, change: 0, perChange: 0 };
     const summary = market_summary || [];
-    const findSummary = (key: string) => summary.find((s: any) => s.detail?.includes(key))?.value || 0;
+    const findSummary = (key: string) => {
+      const val = summary.find((s: any) => s.detail?.includes(key))?.value || 0;
+      if (typeof val === 'string') return parseFloat(val.replace(/,/g, '')) || 0;
+      return val;
+    };
 
     const liveMarketData = live_market || [];
     const advancing = liveMarketData.filter((s: any) => s.percentageChange > 0).length;
@@ -232,7 +238,7 @@ export default function Dashboard() {
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Turnover', value: formatNPR(turnover, true), icon: DollarSign, color: 'text-brand-gold' },
+              { label: 'Turnover', value: formatNPR(turnover, true), icon: Banknote, color: 'text-brand-gold' },
               { label: 'Volume', value: formatVolume(sharesTraded), icon: Volume2, color: 'text-brand-cyan' },
               { label: 'Transactions', value: formatNepaliNumber(transactions, 0), icon: Activity, color: 'text-brand-violet' },
               { label: 'Breadth', value: (advancing > 0 || declining > 0) ? `${advancing}↑ ${declining}↓` : 'N/A', icon: BarChart3, color: 'text-text-primary' },
@@ -270,8 +276,8 @@ export default function Dashboard() {
         ))}
       </motion.div>
 
-      {/* ═══ TOP MOVERS ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* ═══ MARKET MOVERS ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Gainers */}
         <motion.div variants={fadeUp} className="card p-5">
           <div className="flex items-center justify-between mb-4">
@@ -323,6 +329,24 @@ export default function Dashboard() {
               <MoverCard key={s.symbol} stock={s} rank={i + 1} type="volume" onClick={() => navigate(`/stock/${s.symbol}`)} />
             ))}
             {topVolume.length === 0 && <p className="text-sm text-text-muted text-center py-8">No data available</p>}
+          </motion.div>
+        </motion.div>
+
+        {/* Highest Turnover */}
+        <motion.div variants={fadeUp} className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-syne text-base font-bold flex items-center gap-2">
+              <Banknote size={16} className="text-brand-gold" /> Top Turnover
+            </h2>
+            <button onClick={() => navigate('/live-market')} className="text-xs text-text-muted hover:text-brand-cyan flex items-center gap-0.5 transition-colors">
+              View all <ChevronRight size={12} />
+            </button>
+          </div>
+          <motion.div variants={stagger} className="space-y-2">
+            {derived.topTurnover.slice(0, 5).map((s: any, i: number) => (
+              <MoverCard key={s.symbol} stock={s} rank={i + 1} type="turnover" onClick={() => navigate(`/stock/${s.symbol}`)} />
+            ))}
+            {derived.topTurnover.length === 0 && <p className="text-sm text-text-muted text-center py-8">No data available</p>}
           </motion.div>
         </motion.div>
       </div>
@@ -396,7 +420,7 @@ export default function Dashboard() {
               { label: 'Live Market', desc: 'All stocks & prices', path: '/live-market', color: 'from-brand-cyan/20 to-brand-cyan/5', icon: Activity },
               { label: 'Screener', desc: 'Filter & find stocks', path: '/screener', color: 'from-brand-violet/20 to-brand-violet/5', icon: BarChart3 },
               { label: 'Portfolio', desc: 'Track your holdings', path: '/portfolio', color: 'from-bull-green/20 to-bull-green/5', icon: TrendingUp },
-              { label: 'Calculators', desc: 'Profit & fee calc', path: '/calculators', color: 'from-brand-gold/20 to-brand-gold/5', icon: DollarSign },
+              { label: 'Calculators', desc: 'Profit & fee calc', path: '/calculators', color: 'from-brand-gold/20 to-brand-gold/5', icon: Banknote },
             ].map((action) => (
               <motion.button
                 key={action.path}

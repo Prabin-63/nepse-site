@@ -5,34 +5,34 @@
 @tailwind utilities;
 
 :root {
-  --bg-base: 7, 12, 20;
-  --bg-surface: 13, 20, 33;
-  --bg-elevated: 19, 27, 46;
-  --bg-border: 28, 38, 64;
-  --brand-cyan: 0, 212, 255;
-  --brand-violet: 124, 92, 252;
-  --brand-gold: 242, 201, 76;
-  --bull-green: 0, 196, 140;
-  --bear-red: 255, 77, 79;
-  --neutral-yellow: 245, 166, 35;
-  --text-primary: 232, 237, 245;
-  --text-secondary: 123, 141, 176;
-  --text-muted: 61, 79, 110;
-  --text-inverse: 7, 12, 20;
+  --bg-base: 7 12 20;
+  --bg-surface: 13 20 33;
+  --bg-elevated: 19 27 46;
+  --bg-border: 28 38 64;
+  --brand-cyan: 0 212 255;
+  --brand-violet: 124 92 252;
+  --brand-gold: 242 201 76;
+  --bull-green: 0 196 140;
+  --bear-red: 255 77 79;
+  --neutral-yellow: 245 166 35;
+  --text-primary: 232 237 245;
+  --text-secondary: 123 141 176;
+  --text-muted: 61 79 110;
+  --text-inverse: 7 12 20;
   --glow-cyan: 0 0 24px rgba(0,212,255,0.18);
   --glow-green: 0 0 16px rgba(0,196,140,0.2);
   --glow-red: 0 0 16px rgba(255,77,79,0.2);
 }
 
 html.light {
-  --bg-base: 248, 250, 252;
-  --bg-surface: 255, 255, 255;
-  --bg-elevated: 226, 232, 240;
-  --bg-border: 203, 213, 225;
-  --text-primary: 15, 23, 42;
-  --text-secondary: 71, 85, 105;
-  --text-muted: 148, 163, 184;
-  --text-inverse: 255, 255, 255;
+  --bg-base: 248 250 252;
+  --bg-surface: 255 255 255;
+  --bg-elevated: 226 232 240;
+  --bg-border: 203 213 225;
+  --text-primary: 15 23 42;
+  --text-secondary: 71 85 105;
+  --text-muted: 148 163 184;
+  --text-inverse: 255 255 255;
   --glow-cyan: 0 0 24px rgba(0,212,255,0.4);
 }
 
@@ -53,8 +53,8 @@ html.compact {
 
 body {
   font-family: 'Outfit', sans-serif;
-  background-color: rgba(var(--bg-base), 1);
-  color: rgba(var(--text-primary), 1);
+  background-color: rgb(var(--bg-base));
+  color: rgb(var(--text-primary));
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

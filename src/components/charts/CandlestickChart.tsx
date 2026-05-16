@@ -25,9 +25,9 @@ export default function CandlestickChart({
     const width = chartContainerRef.current.clientWidth;
     if (width <= 0) return;
 
-    // Helper to format comma-separated RGB to standard rgb() string
+    // Helper to format space-separated RGB to standard rgb() string
     const formatColor = (val: string, fallback: string) => 
-      val ? `rgb(${val})` : fallback;
+      val ? `rgb(${val.split(' ').filter(Boolean).join(', ')})` : fallback;
 
     // Get current theme colors from CSS variables
     const rs = getComputedStyle(document.documentElement);

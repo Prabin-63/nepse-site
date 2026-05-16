@@ -173,6 +173,7 @@ interface UIState {
   compactMode: boolean;
   calendarMode: 'BS' | 'AD' | 'both';
   numberFormat: 'nepali' | 'international';
+  selectedBrokerId: string | null;
   toggleSidebar: () => void;
   toggleSearch: () => void;
   setTheme: (theme: 'dark' | 'light' | 'system') => void;
@@ -180,6 +181,7 @@ interface UIState {
   setCompactMode: (isCompact: boolean) => void;
   setCalendarMode: (mode: 'BS' | 'AD' | 'both') => void;
   setNumberFormat: (format: 'nepali' | 'international') => void;
+  setSelectedBrokerId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -192,6 +194,7 @@ export const useUIStore = create<UIState>()(
       compactMode: false,
       calendarMode: 'BS',
       numberFormat: 'nepali',
+      selectedBrokerId: null,
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
       setTheme: (theme) => set({ theme }),
@@ -199,6 +202,7 @@ export const useUIStore = create<UIState>()(
       setCompactMode: (compactMode) => set({ compactMode }),
       setCalendarMode: (calendarMode) => set({ calendarMode }),
       setNumberFormat: (numberFormat) => set({ numberFormat }),
+      setSelectedBrokerId: (selectedBrokerId) => set({ selectedBrokerId }),
     }),
     { name: 'nepse-ui' }
   )

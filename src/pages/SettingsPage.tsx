@@ -166,7 +166,7 @@ export default function SettingsPage() {
                     className="input-field py-2 w-64"
                   >
                     <option value="NPR">Nepali Rupee (Rs.)</option>
-                    <option value="USD">US Dollar ($)</option>
+                    <option value="USD">US Dollar (Rs.)</option>
                     <option value="INR">Indian Rupee (₹)</option>
                   </select>
                 </div>

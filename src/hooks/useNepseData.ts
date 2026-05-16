@@ -56,3 +56,9 @@ export const useCompanyFloorsheet = (symbol: string) =>
 
 export const useNews = () =>
   useQuery({ queryKey: ["news"], queryFn: nepseApi.getNews, staleTime: 60 * 1000, refetchInterval: 60 * 1000 });
+
+export const useBrokers = () =>
+  useQuery({ queryKey: ["brokers"], queryFn: nepseApi.getBrokers, staleTime: SLOW_STALE });
+
+export const useBrokerDetail = (id: string) =>
+  useQuery({ queryKey: ["broker-detail", id], queryFn: () => nepseApi.getBrokerDetail(id), staleTime: SLOW_STALE, enabled: !!id });

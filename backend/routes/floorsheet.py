@@ -26,7 +26,9 @@ def get_company_floorsheet(symbol: str):
     if cached:
         return {"status": "ok", "source": "cache", "symbol": symbol, "data": cached}
     data = nepse_client.get_company_floorsheet(symbol.upper())
-    if data:
+    if data is not None:
         cache.set(cache_key, data, 300)
         return {"status": "ok", "source": "live", "symbol": symbol, "data": data}
-    raise HTTPException(status_code=404, detail=f"Floorsheet not found for {symbol}")
+    
+    # Return empty list if no data found instead of 404
+    return {"status": "ok", "source": "live", "symbol": symbol, "data": []}

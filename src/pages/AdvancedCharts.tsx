@@ -105,18 +105,36 @@ export default function AdvancedCharts() {
       const sorted = [...rawData].sort((a: any, b: any) =>
         new Date(a.businessDate || a.date).getTime() - new Date(b.businessDate || b.date).getTime()
       );
-      return sorted.slice(-bars).map((d: any) => {
+      const mapped = sorted.map((d: any, index: number) => {
         const dateStr = (d.businessDate || d.date || '').split('T')[0];
+        const close = d.closePrice ?? d.close ?? d.value ?? 0;
+        
+        let open = d.openPrice ?? d.open;
+        const prevClose = index > 0 
+          ? (sorted[index - 1].closePrice ?? sorted[index - 1].close ?? sorted[index - 1].value ?? close) 
+          : undefined;
+
+        if (open === undefined) {
+          if (prevClose !== undefined) {
+            open = prevClose;
+          } else {
+            const h = d.highPrice ?? d.high ?? close;
+            const l = d.lowPrice ?? d.low ?? close;
+            open = (h + l) / 2;
+          }
+        }
+        
         return {
           time: new Date(dateStr).getTime() / 1000,
           date: dateStr,
-          open: d.openPrice ?? d.open ?? d.close ?? d.value ?? 0,
-          high: d.highPrice ?? d.high ?? d.close ?? d.value ?? 0,
-          low: d.lowPrice ?? d.low ?? d.close ?? d.value ?? 0,
-          close: d.closePrice ?? d.close ?? d.value ?? 0,
+          open,
+          high: d.highPrice ?? d.high ?? close,
+          low: d.lowPrice ?? d.low ?? close,
+          close,
           volume: d.totalTradedQuantity ?? d.volume ?? 0,
         };
-      }).filter((d: any) => d.date && d.close > 0);
+      });
+      return mapped.filter((d: any) => d.date && d.close > 0).slice(-bars);
     }
     // Fallback: generate realistic mock data
     const bars = TFBARS[timeframe] ?? 90;

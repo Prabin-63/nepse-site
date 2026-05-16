@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Calculator, DollarSign, PieChart, TrendingUp, TrendingDown, Info, HelpCircle, ArrowRightLeft, Percent } from 'lucide-react';
+import { Calculator, Banknote, PieChart, TrendingUp, TrendingDown, Info, HelpCircle, ArrowRightLeft, Percent } from 'lucide-react';
 import { calculateBrokerFee, calculateSEBONFee, calculateCGT, DP_CHARGE, formatNepaliNumber, formatPercent, getPriceColorClass } from '../utils';
 
 export default function Calculators() {
@@ -71,7 +71,7 @@ export default function Calculators() {
         <div className="lg:col-span-1 space-y-4">
           <div className="card p-5 space-y-5">
              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2 mb-2">
-               <DollarSign size={16} className="text-brand-cyan" /> Transaction Details
+               <Banknote size={16} className="text-brand-cyan" /> Transaction Details
              </h3>
              
              <div className="space-y-2">

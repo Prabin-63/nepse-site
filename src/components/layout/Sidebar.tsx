@@ -88,6 +88,7 @@ export default function Sidebar() {
                         : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated/70'
                       }`
                     }
+                    onClick={() => { if (window.innerWidth < 1024 && sidebarOpen) toggleSidebar(); }}
                     title={item.label}
                   >
                     {({ isActive }) => (
@@ -118,6 +119,7 @@ export default function Sidebar() {
               : 'text-text-secondary hover:text-text-primary hover:bg-bg-elevated/70'
             }`
           }
+          onClick={() => { if (window.innerWidth < 1024 && sidebarOpen) toggleSidebar(); }}
           title="Settings"
         >
           <Settings size={18} className="shrink-0" />
