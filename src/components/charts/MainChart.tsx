@@ -120,7 +120,7 @@ function MainChart({ data, chartType, overlays, height = 540 }: Props) {
       const addLine = (vals: (number | null)[], color: string, width = 1) => {
         const s = chart.addSeries(LineSeries, { 
           color, 
-          lineWidth: width, 
+          lineWidth: width as any, 
           priceLineVisible: false, 
           lastValueVisible: false, 
           crosshairMarkerVisible: false 

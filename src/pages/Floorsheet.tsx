@@ -4,42 +4,15 @@ import { Search, Filter, Download, RotateCw, AlertTriangle, Info } from 'lucide-
 import { fetchFloorsheet } from '../services/api';
 import { formatNepaliNumber, formatNPR, getNepalTime } from '../utils';
 
+import { useFloorsheet } from '../hooks/useNepseData';
+
 export default function Floorsheet() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawData, isLoading, isError, refetch, isRefetching } = useFloorsheet();
+  const data = rawData || [];
+  
   const [search, setSearch] = useState('');
   const [brokerFilter, setBrokerFilter] = useState('');
   const [minQty, setMinQty] = useState('');
-
-  const loadFloorsheet = async () => {
-    setLoading(true);
-    try {
-      const res = await fetchFloorsheet(500);
-      if (res?.content) {
-        setData(res.content);
-      } else {
-        // Mock data for display if API fails
-        const mock = Array.from({ length: 50 }).map((_, i) => ({
-          contractId: 202405120000 + i,
-          contractDate: '2024-05-12',
-          contractTime: '11:24:05',
-          stockSymbol: ['NABIL', 'NICA', 'NHPC', 'UPPER', 'NLIC'][Math.floor(Math.random() * 5)],
-          buyerMemberId: Math.floor(Math.random() * 92) + 1,
-          sellerMemberId: Math.floor(Math.random() * 92) + 1,
-          contractQuantity: Math.floor(Math.random() * 500) + 10,
-          contractRate: Math.floor(Math.random() * 1000) + 200,
-        }));
-        setData(mock);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadFloorsheet();
-  }, []);
 
   const filtered = data.filter(item => {
     const symbolMatch = item.stockSymbol.toLowerCase().includes(search.toLowerCase());
@@ -67,10 +40,11 @@ export default function Floorsheet() {
             <Download size={14} /> Export CSV
           </button>
           <button 
-            onClick={loadFloorsheet}
+            onClick={() => refetch()}
+            disabled={isRefetching}
             className="btn-primary py-1.5 px-3 flex items-center gap-2 text-xs"
           >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RotateCw size={14} className={isRefetching ? 'animate-spin' : ''} /> Refresh
           </button>
         </div>
       </div>
@@ -163,7 +137,7 @@ export default function Floorsheet() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && !loading && (
+              {filtered.length === 0 && !isLoading && !isError && (
                 <tr>
                   <td colSpan={9} className="p-12 text-center text-text-muted">No transactions found matching your criteria.</td>
                 </tr>
@@ -171,10 +145,15 @@ export default function Floorsheet() {
             </tbody>
           </table>
         </div>
-        {loading && (
+        {isLoading && (
           <div className="p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-brand-cyan border-t-transparent" />
-            <p className="mt-4 text-text-muted text-sm">Fetching live floorsheet data...</p>
+            <p className="mt-4 text-text-muted text-sm">Fetching live floorsheet data... This may take up to a minute.</p>
+          </div>
+        )}
+        {isError && (
+          <div className="p-12 text-center text-bear-red">
+            Failed to load floorsheet data.
           </div>
         )}
       </motion.div>

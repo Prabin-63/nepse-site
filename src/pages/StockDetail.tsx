@@ -77,20 +77,19 @@ const FundamentalsTab = ({ symbol }: { symbol: string }) => {
     </div>
   );
 };
+import { useCompanyFloorsheet } from '../hooks/useNepseData';
+
 const FloorsheetTab = ({ symbol }: { symbol: string }) => {
-  const mockTrades = Array.from({ length: 15 }).map((_, i) => ({
-    id: 202405120000 + i,
-    time: `${10 + Math.floor(i / 4)}:${String((i * 13) % 60).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}`,
-    buyer: Math.floor(Math.random() * 60) + 1,
-    seller: Math.floor(Math.random() * 60) + 1,
-    qty: Math.floor(Math.random() * 500) + 10,
-    rate: 1200 + Math.floor((Math.random() - 0.5) * 100),
-  }));
+  const { data: floorsheetData, isLoading } = useCompanyFloorsheet(symbol);
+  const trades = floorsheetData || [];
+  
+  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading floorsheet...</div>;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="font-syne font-bold">Today's Trades — {symbol}</h4>
-        <span className="text-xs text-text-muted">{mockTrades.length} transactions</span>
+        <span className="text-xs text-text-muted">{trades.length} transactions</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -103,17 +102,18 @@ const FloorsheetTab = ({ symbol }: { symbol: string }) => {
             </tr>
           </thead>
           <tbody>
-            {mockTrades.map(t => (
-              <tr key={t.id} className="border-b border-bg-border/20 hover:bg-bg-elevated/40 transition-colors">
-                <td className="table-cell text-text-muted font-jetbrains text-xs">#{t.id}</td>
-                <td className="table-cell font-jetbrains text-xs">{t.time}</td>
-                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bull-green/10 text-bull-green text-xs font-bold">{t.buyer}</span></td>
-                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bear-red/10 text-bear-red text-xs font-bold">{t.seller}</span></td>
-                <td className="table-cell text-right font-jetbrains">{t.qty.toLocaleString()}</td>
-                <td className="table-cell text-right font-jetbrains text-text-secondary">{formatNepaliNumber(t.rate)}</td>
-                <td className="table-cell text-right font-jetbrains text-text-primary">{formatNepaliNumber(t.qty * t.rate)}</td>
+            {trades.slice(0, 100).map((t: any) => (
+              <tr key={t.contractId} className="border-b border-bg-border/20 hover:bg-bg-elevated/40 transition-colors">
+                <td className="table-cell text-text-muted font-jetbrains text-xs">#{t.contractId}</td>
+                <td className="table-cell font-jetbrains text-xs">{t.contractTime}</td>
+                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bull-green/10 text-bull-green text-xs font-bold">{t.buyerMemberId}</span></td>
+                <td className="table-cell"><span className="px-1.5 py-0.5 rounded bg-bear-red/10 text-bear-red text-xs font-bold">{t.sellerMemberId}</span></td>
+                <td className="table-cell text-right font-jetbrains">{t.contractQuantity?.toLocaleString()}</td>
+                <td className="table-cell text-right font-jetbrains text-text-secondary">{formatNepaliNumber(t.contractRate)}</td>
+                <td className="table-cell text-right font-jetbrains text-text-primary">{formatNepaliNumber((t.contractQuantity || 0) * (t.contractRate || 0))}</td>
               </tr>
             ))}
+            {trades.length === 0 && <tr><td colSpan={7} className="text-center p-4 text-text-muted">No trades today</td></tr>}
           </tbody>
         </table>
       </div>
@@ -324,55 +324,67 @@ const tabs = [
   { id: 'ai', label: 'AI Insight', icon: MessageSquare },
 ];
 
+import { useStockPrice, useStockDetail, useStockChart } from '../hooks/useNepseData';
+
 export default function StockDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('chart');
-  const [stock, setStock] = useState<any>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  const safeSymbol = symbol || '';
+  const { data: priceData, isLoading: loadingPrice } = useStockPrice(safeSymbol);
+  const { data: detailData, isLoading: loadingDetail } = useStockDetail(safeSymbol);
+  const { data: graphData, isLoading: loadingChart } = useStockChart(safeSymbol);
   
   const { watchlists, addToWatchlist, removeFromWatchlist } = useWatchlistStore();
   const watched = useMemo(() => watchlists.some(w => w.items.some(i => i.symbol === symbol)), [watchlists, symbol]);
 
   useEffect(() => {
-    async function load() {
-      if (!symbol) return;
-      try {
-        // First look in seed data
-        const seed = seedCompanies.find(s => s.symbol === symbol);
-        if (seed) setStock(seed);
-
-        // Then try API
-        const data = await fetchSecurityDetail(symbol);
-        if (data) {
-          setStock((prev: any) => ({
-            ...prev,
-            ...data,
-            ltp: data.lastTradedPrice || data.ltp || prev?.ltp,
-            change: (data.lastTradedPrice || data.ltp) - data.previousClose,
-            changePercent: (((data.lastTradedPrice || data.ltp) - data.previousClose) / data.previousClose) * 100,
-          }));
-        }
-
-        // Fetch or Generate Chart Data
-        const graph = await fetchGraphData(symbol);
-        if (graph && graph.length) {
-          setChartData(graph);
-        } else {
-          setChartData(generateMockOHLCV(symbol, 180, seedCompanies.find(s => s.symbol === symbol)?.ltp || 1000));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      setLoading(false);
-    }
-    load();
     window.scrollTo(0, 0);
   }, [symbol]);
 
-  if (loading) return <div className="p-8 text-center text-text-secondary">Loading security data...</div>;
-  if (!stock) return <div className="p-8 text-center text-text-secondary">Stock {symbol} not found.</div>;
+  const loading = loadingPrice || loadingDetail || loadingChart;
+
+  if (loading) return <div className="p-8 text-center text-text-secondary"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-cyan mx-auto mb-4"></div>Loading security data...</div>;
+
+  const stock = {
+    symbol: safeSymbol,
+    companyName: detailData?.securityName || priceData?.securityName || safeSymbol,
+    companyNameNepali: detailData?.companyNameNepali || '',
+    sector: detailData?.sectorName || priceData?.sectorName || 'N/A',
+    ltp: priceData?.lastTradedPrice || 0,
+    previousClose: priceData?.previousClose || 0,
+    change: (priceData?.lastTradedPrice || 0) - (priceData?.previousClose || 0),
+    changePercent: (((priceData?.lastTradedPrice || 0) - (priceData?.previousClose || 0)) / (priceData?.previousClose || 1)) * 100,
+    open: priceData?.openPrice || 0,
+    high: priceData?.highPrice || 0,
+    low: priceData?.lowPrice || 0,
+    volume: priceData?.totalTradeQuantity || 0,
+    turnover: priceData?.totalTradeValue || priceData?.totalTurnover || 0,
+    marketCap: priceData?.marketCapitalization || detailData?.marketCap || 0,
+    week52High: priceData?.fiftyTwoWeekHigh || detailData?.fiftyTwoWeekHigh || 0,
+    week52Low: priceData?.fiftyTwoWeekLow || detailData?.fiftyTwoWeekLow || 0,
+    eps: detailData?.eps,
+    peRatio: detailData?.peRatio,
+    bookValue: detailData?.bookValue,
+    pbRatio: detailData?.pbRatio,
+    dividendYield: detailData?.dividendYield,
+  };
+
+  const rawGraphData = graphData?.content || (Array.isArray(graphData) ? graphData : []);
+  const chartData = rawGraphData.length > 0 ? rawGraphData.map((d: any) => {
+    const dateStr = (d.businessDate || d.date || '').split('T')[0];
+    return {
+      time: new Date(dateStr).getTime() / 1000,
+      open: d.openPrice ?? d.open ?? d.closePrice ?? d.value ?? 0,
+      high: d.highPrice ?? d.high ?? d.closePrice ?? d.value ?? 0,
+      low: d.lowPrice ?? d.low ?? d.closePrice ?? d.value ?? 0,
+      close: d.closePrice ?? d.close ?? d.value ?? 0,
+      volume: d.totalTradedQuantity ?? d.volume ?? 0,
+    };
+  }).sort((a: any, b: any) => a.time - b.time) : generateMockOHLCV(safeSymbol, 180, stock.ltp || 1000);
+
+  if (!stock.ltp && !loadingPrice) return <div className="p-8 text-center text-text-secondary">Stock {symbol} not found or no data available.</div>;
 
   const colorClass = getPriceColorClass(stock.changePercent);
 

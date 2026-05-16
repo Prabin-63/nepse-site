@@ -5,6 +5,7 @@ import { Search, Filter, Star, ArrowUpDown, ChevronUp, ChevronDown } from 'lucid
 import { seedCompanies } from '../data/seed';
 import { fetchTodayPrices } from '../services/api';
 import { formatNepaliNumber, formatPercent, formatVolume, formatNPR, getPriceColorClass } from '../utils';
+import { useLiveTrading } from '../hooks/useNepseData';
 import { useWatchlistStore } from '../store';
 
 type SortField = 'symbol' | 'ltp' | 'changePercent' | 'volume' | 'turnover' | 'marketCap';
@@ -12,13 +13,31 @@ type SortDir = 'asc' | 'desc';
 
 export default function LiveMarket() {
   const navigate = useNavigate();
-  const [stocks, setStocks] = useState(seedCompanies);
+  const { data: rawData, isLoading, isError } = useLiveTrading();
+  
+  const stocks = useMemo(() => {
+    if (!rawData) return [];
+    return rawData.map((s: any) => ({
+      symbol: s.symbol, companyName: s.securityName || s.companyName || s.symbol,
+      companyNameNepali: '', sector: s.sectorName || s.sector || '',
+      ltp: s.lastTradedPrice || s.ltp, previousClose: s.previousClose,
+      change: (s.lastTradedPrice || s.ltp) - s.previousClose,
+      changePercent: s.percentageChange || 0,
+      open: s.openPrice, high: s.highPrice, low: s.lowPrice,
+      volume: s.totalTradeQuantity || s.volume || 0,
+      turnover: s.totalTradeValue || s.totalTurnover || s.turnover || 0,
+      marketCap: s.marketCap || 0,
+      week52High: s.fiftyTwoWeekHigh || 0, week52Low: s.fiftyTwoWeekLow || 0,
+      eps: s.eps || 0, peRatio: s.peRatio || 0, bookValue: s.bookValue || 0,
+      pbRatio: s.pbRatio || 0, dividendYield: s.dividendYield || 0,
+    }));
+  }, [rawData]);
+
   const [search, setSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState('All');
   const [viewFilter, setViewFilter] = useState<'all' | 'gainers' | 'losers'>('all');
   const [sortField, setSortField] = useState<SortField>('symbol');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [loading, setLoading] = useState(true);
   const { watchlists, addToWatchlist, removeFromWatchlist } = useWatchlistStore();
 
   const watchedSymbols = useMemo(() => {
@@ -27,34 +46,8 @@ export default function LiveMarket() {
     return syms;
   }, [watchlists]);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchTodayPrices();
-        if (data?.content?.length) {
-          setStocks(data.content.map((s: any) => ({
-            symbol: s.symbol, companyName: s.securityName || s.companyName || s.symbol,
-            companyNameNepali: '', sector: s.sectorName || s.sector || '',
-            ltp: s.lastTradedPrice || s.ltp, previousClose: s.previousClose,
-            change: (s.lastTradedPrice || s.ltp) - s.previousClose,
-            changePercent: (((s.lastTradedPrice || s.ltp) - s.previousClose) / s.previousClose) * 100,
-            open: s.openPrice, high: s.highPrice, low: s.lowPrice,
-            volume: s.totalTradeQuantity || s.volume || 0,
-            turnover: s.totalTurnover || s.turnover || 0,
-            marketCap: s.marketCap || 0,
-            week52High: s.fiftyTwoWeekHigh || 0, week52Low: s.fiftyTwoWeekLow || 0,
-            eps: s.eps || 0, peRatio: s.peRatio || 0, bookValue: s.bookValue || 0,
-            pbRatio: s.pbRatio || 0, dividendYield: s.dividendYield || 0,
-          })));
-        }
-      } catch { /* seed data fallback */ }
-      setLoading(false);
-    }
-    load();
-  }, []);
-
   const sectors = useMemo(() => {
-    const s = new Set(stocks.map(st => st.sector).filter(Boolean));
+    const s = new Set(stocks.map((st: any) => st.sector).filter(Boolean));
     return ['All', ...Array.from(s).sort()];
   }, [stocks]);
 
@@ -177,8 +170,11 @@ export default function LiveMarket() {
             </tbody>
           </table>
         </div>
-        {loading && (
-          <div className="p-8 text-center text-text-muted">Loading market data...</div>
+        {isLoading && (
+          <div className="p-8 text-center text-text-muted flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-cyan"></div></div>
+        )}
+        {isError && (
+          <div className="p-8 text-center text-bear-red">Error loading live market data.</div>
         )}
       </motion.div>
     </div>

@@ -1,33 +1,53 @@
 import { useState, useEffect } from 'react';
 import { Search, Bell, User, Menu, Wifi, WifiOff } from 'lucide-react';
-import { useUIStore, useMarketStore } from '../../store';
-import { formatNepaliNumber, formatPercent, getMarketStatus, getTimeToMarketEvent, getPriceColorClass } from '../../utils';
+import { useUIStore } from '../../store';
+import { formatNepaliNumber, formatPercent, getPriceColorClass } from '../../utils';
+import { useDashboard } from '../../hooks/useNepseData';
+import { timeToMarketEvent, isNepalMarketOpen } from '../../utils/marketHours';
+import { nepseApi } from '../../lib/api';
 
 export default function TopBar() {
   const { toggleSidebar, toggleSearch, sidebarOpen } = useUIStore();
-  const { nepseIndex, sensitiveIndex, floatIndex, totalTurnover, advancing, declining, unchanged } = useMarketStore();
-  const [marketStatus, setMarketStatus] = useState(getMarketStatus());
-  const [countdown, setCountdown] = useState(getTimeToMarketEvent());
+  const { data: dashboardData } = useDashboard();
+  
+  const [countdown, setCountdown] = useState(timeToMarketEvent());
   const [apiOnline, setApiOnline] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setMarketStatus(getMarketStatus());
-      setCountdown(getTimeToMarketEvent());
+      setCountdown(timeToMarketEvent());
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/health')
-      .then(r => r.ok ? setApiOnline(true) : setApiOnline(false))
+    nepseApi.health()
+      .then(r => r.status === 'healthy' ? setApiOnline(true) : setApiOnline(false))
       .catch(() => setApiOnline(false));
   }, []);
 
-  const statusColor = marketStatus === 'OPEN' ? 'bg-bull-green' : marketStatus === 'PRE_OPEN' ? 'bg-neutral-yellow' : 'bg-bear-red';
+  // Map API data
+  const nepseIndex = dashboardData?.nepse_index?.find((i: any) => i.index === 'NEPSE Index') || { currentValue: 0, change: 0, perChange: 0 };
+  const sensitiveIndex = dashboardData?.nepse_index?.find((i: any) => i.index === 'Sensitive Index') || { currentValue: 0, change: 0, perChange: 0 };
+  const floatIndex = dashboardData?.nepse_index?.find((i: any) => i.index === 'Float Index') || { currentValue: 0, change: 0, perChange: 0 };
+  
+  const summary = dashboardData?.market_summary || [];
+  const totalTurnover = summary.find((s: any) => s.detail === 'Total Turnover Rs:')?.value || summary.find((s: any) => s.detail === 'Total Turnover')?.value || 0;
+  const advancing = summary.find((s: any) => s.detail === 'Total Advance')?.value || 0;
+  const declining = summary.find((s: any) => s.detail === 'Total Decline')?.value || 0;
+  const unchanged = summary.find((s: any) => s.detail === 'Total Unchanged')?.value || 0;
+  
+  const marketStatusObj = dashboardData?.market_status;
+  const marketStatus = isNepalMarketOpen() ? 'OPEN' : 'CLOSED'; // Fallback to local calculation if API doesn't have it
+
+  const statusColor = marketStatus === 'OPEN' ? 'bg-bull-green' : (marketStatus as string) === 'PRE_OPEN' ? 'bg-neutral-yellow' : 'bg-bear-red';
   const statusPulse = marketStatus === 'OPEN' ? 'animate-pulse' : '';
   const total = advancing + declining + unchanged;
   const advanceRatio = total > 0 ? (advancing / total) * 100 : 50;
+
+  const hours = Math.floor(countdown.seconds / 3600);
+  const minutes = Math.floor((countdown.seconds % 3600) / 60);
+  const seconds = Math.floor(countdown.seconds % 60);
 
   return (
     <header className={`fixed top-0 right-0 z-30 h-auto bg-bg-surface/95 backdrop-blur-md border-b border-bg-border
@@ -42,9 +62,9 @@ export default function TopBar() {
         {/* NEPSE Index */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-text-secondary font-medium">NEPSE</span>
-          <span className="font-jetbrains font-bold text-text-primary">{formatNepaliNumber(nepseIndex.value)}</span>
+          <span className="font-jetbrains font-bold text-text-primary">{formatNepaliNumber(nepseIndex.currentValue)}</span>
           <span className={`font-jetbrains font-semibold ${getPriceColorClass(nepseIndex.change)}`}>
-            {formatPercent(nepseIndex.changePercent)}
+            {formatPercent(nepseIndex.perChange)}
           </span>
         </div>
 
@@ -53,9 +73,9 @@ export default function TopBar() {
         {/* Sensitive */}
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-text-muted">Sensitive</span>
-          <span className="font-jetbrains text-text-primary">{sensitiveIndex.value.toFixed(2)}</span>
+          <span className="font-jetbrains text-text-primary">{sensitiveIndex.currentValue.toFixed(2)}</span>
           <span className={`font-jetbrains ${getPriceColorClass(sensitiveIndex.change)}`}>
-            {formatPercent(sensitiveIndex.changePercent)}
+            {formatPercent(sensitiveIndex.perChange)}
           </span>
         </div>
 
@@ -64,9 +84,9 @@ export default function TopBar() {
         {/* Float */}
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-text-muted">Float</span>
-          <span className="font-jetbrains text-text-primary">{floatIndex.value.toFixed(2)}</span>
+          <span className="font-jetbrains text-text-primary">{floatIndex.currentValue.toFixed(2)}</span>
           <span className={`font-jetbrains ${getPriceColorClass(floatIndex.change)}`}>
-            {formatPercent(floatIndex.changePercent)}
+            {formatPercent(floatIndex.perChange)}
           </span>
         </div>
 
@@ -96,14 +116,14 @@ export default function TopBar() {
         {/* Market Status */}
         <div className="flex items-center gap-2 shrink-0">
           <div className={`w-2 h-2 rounded-full ${statusColor} ${statusPulse}`} />
-          <span className="text-text-secondary font-medium uppercase text-[11px]">{marketStatus.replace('_', '-')}</span>
+          <span className="text-text-secondary font-medium uppercase text-[11px]">{marketStatusObj?.isOpen || marketStatus}</span>
         </div>
 
         {/* Countdown */}
         <div className="flex items-center gap-1 shrink-0 text-text-muted">
-          <span>{countdown.event}:</span>
+          <span>{countdown.label}:</span>
           <span className="font-jetbrains text-text-primary">
-            {String(countdown.hours).padStart(2, '0')}:{String(countdown.minutes).padStart(2, '0')}:{String(countdown.seconds).padStart(2, '0')}
+            {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </span>
         </div>
 

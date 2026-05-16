@@ -7,43 +7,49 @@ import { seedCompanies, seedSectors, seedEvents } from '../data/seed';
 import { formatNPR, formatPercent, formatVolume, getPriceColorClass, formatNepaliNumber } from '../utils';
 import { fetchTodayPrices, fetchTopGainers, fetchTopLosers, fetchTopVolume, fetchTopTurnover, fetchSectors } from '../services/api';
 
+import { useDashboard } from '../hooks/useNepseData';
+
 const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { nepseIndex, sensitiveIndex, floatIndex, totalTurnover, advancing, declining, totalTransactions, totalTradedShares } = useMarketStore();
-  const [stocks, setStocks] = useState(seedCompanies);
-  const [sectors, setSectors] = useState(seedSectors);
-  const [loading, setLoading] = useState(true);
+  const { data: dashboardData, isLoading, isError } = useDashboard();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-cyan"></div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const priceData = await fetchTodayPrices();
-        if (priceData?.content) {
-          setStocks(priceData.content.map((s: any) => ({
-            symbol: s.symbol, companyName: s.securityName, sector: s.sectorName || '',
-            ltp: s.lastTradedPrice, previousClose: s.previousClose, change: s.lastTradedPrice - s.previousClose,
-            changePercent: ((s.lastTradedPrice - s.previousClose) / s.previousClose) * 100,
-            open: s.openPrice, high: s.highPrice, low: s.lowPrice, volume: s.totalTradeQuantity,
-            turnover: s.totalTurnover, week52High: s.fiftyTwoWeekHigh, week52Low: s.fiftyTwoWeekLow,
-          })));
-        }
-        const sectorData = await fetchSectors();
-        if (sectorData && Array.isArray(sectorData)) setSectors(sectorData);
-      } catch { /* use seed data */ }
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  if (isError || !dashboardData) {
+    return (
+      <div className="bg-bear-red/10 border border-bear-red text-bear-red p-4 rounded-lg">
+        Could not load live dashboard data.
+      </div>
+    );
+  }
 
-  const sortedByGain = [...stocks].sort((a, b) => b.changePercent - a.changePercent);
-  const topGainer = sortedByGain[0];
-  const topLoser = sortedByGain[sortedByGain.length - 1];
-  const topByVolume = [...stocks].sort((a, b) => b.volume - a.volume)[0];
-  const topByTurnover = [...stocks].sort((a, b) => b.turnover - a.turnover)[0];
-  const week52Highs = stocks.filter(s => s.ltp >= (s.week52High || Infinity));
-  const week52Lows = stocks.filter(s => s.ltp <= (s.week52Low || 0));
+  const {
+    nepse_index: nepseIndex,
+    market_summary: summary,
+    top_gainers: topGainerData,
+    top_losers: topLoserData,
+    top_turnover: topTurnoverData,
+    top_volume: topVolumeData,
+    sector_indices: sectorsData,
+  } = dashboardData;
+
+  const topGainer = topGainerData?.[0] || {};
+  const topLoser = topLoserData?.[0] || {};
+  const topByVolume = topVolumeData?.[0] || {};
+  const topByTurnover = topTurnoverData?.[0] || {};
+  const week52Highs: any[] = []; // Assuming backend doesn't provide this yet
+  const week52Lows: any[] = []; // Assuming backend doesn't provide this yet
+  const sectors = sectorsData || [];
+  
+  const sortedByGain = topGainerData || [];
 
   const eventTypeColors: Record<string, string> = {
     ipo: 'border-brand-cyan bg-brand-cyan/10 text-brand-cyan',
@@ -62,10 +68,10 @@ export default function Dashboard() {
       <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.08 } } }}
         className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: 'Top Gainer', icon: TrendingUp, color: 'bull-green', symbol: topGainer?.symbol, value: topGainer?.ltp, pct: topGainer?.changePercent },
-          { label: 'Top Loser', icon: TrendingDown, color: 'bear-red', symbol: topLoser?.symbol, value: topLoser?.ltp, pct: topLoser?.changePercent },
-          { label: 'Most Active (Vol)', icon: Volume2, color: 'brand-cyan', symbol: topByVolume?.symbol, value: topByVolume?.volume, pct: topByVolume?.changePercent, isVol: true },
-          { label: 'Most Active (TO)', icon: DollarSign, color: 'brand-gold', symbol: topByTurnover?.symbol, value: topByTurnover?.turnover, pct: topByTurnover?.changePercent, isTO: true },
+          { label: 'Top Gainer', icon: TrendingUp, color: 'bull-green', symbol: topGainer?.symbol, value: topGainer?.ltp, pct: topGainer?.percentageChange },
+          { label: 'Top Loser', icon: TrendingDown, color: 'bear-red', symbol: topLoser?.symbol, value: topLoser?.ltp, pct: topLoser?.percentageChange },
+          { label: 'Most Active (Vol)', icon: Volume2, color: 'brand-cyan', symbol: topByVolume?.symbol, value: topByVolume?.shareTraded, pct: undefined, isVol: true },
+          { label: 'Most Active (TO)', icon: DollarSign, color: 'brand-gold', symbol: topByTurnover?.symbol, value: topByTurnover?.turnover, pct: undefined, isTO: true },
           { label: '52W High Breakouts', icon: ArrowUpRight, color: 'bull-green', count: week52Highs.length, symbol: week52Highs[0]?.symbol },
           { label: '52W Low Hits', icon: ArrowDownRight, color: 'bear-red', count: week52Lows.length, symbol: week52Lows[0]?.symbol },
         ].map((card, i) => (
@@ -101,19 +107,20 @@ export default function Dashboard() {
           <Zap size={18} className="text-brand-cyan" /> Sector Heatmap
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {sectors.map((sector) => {
-            const intensity = Math.min(Math.abs(sector.changePercent) / 3, 1);
-            const bgColor = sector.changePercent >= 0
+          {sectors.map((sector: any) => {
+            const perChange = sector.perChange || 0;
+            const intensity = Math.min(Math.abs(perChange) / 3, 1);
+            const bgColor = perChange >= 0
               ? `rgba(0,196,140,${0.08 + intensity * 0.35})`
               : `rgba(255,77,79,${0.08 + intensity * 0.35})`;
             return (
               <div key={sector.id} onClick={() => navigate(`/sector/${sector.id}`)}
                 className="rounded-lg p-3 border border-bg-border/50 cursor-pointer hover:scale-[1.02] transition-all"
                 style={{ background: bgColor }}>
-                <div className="text-xs font-medium text-text-primary truncate">{sector.name}</div>
-                <div className="text-[10px] text-text-muted font-noto-devanagari">{sector.nameNepali}</div>
-                <div className={`font-jetbrains text-sm font-bold mt-1 ${getPriceColorClass(sector.changePercent)}`}>
-                  {formatPercent(sector.changePercent)}
+                <div className="text-xs font-medium text-text-primary truncate">{sector.index}</div>
+                <div className="text-[10px] text-text-muted font-noto-devanagari">{sector.nameNepali || ''}</div>
+                <div className={`font-jetbrains text-sm font-bold mt-1 ${getPriceColorClass(perChange)}`}>
+                  {formatPercent(perChange)}
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-[10px]">
                   <span className="text-bull-green">{sector.stocksUp}↑</span>
@@ -146,19 +153,19 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {sortedByGain.slice(0, 10).map((s, i) => (
+                {sortedByGain.slice(0, 10).map((s: any, i: number) => (
                   <tr key={s.symbol} onClick={() => navigate(`/stock/${s.symbol}`)}
                     className="border-b border-bg-border/30 hover:bg-bg-elevated/50 cursor-pointer transition-colors">
                     <td className="py-2.5 px-2">
                       <span className="font-semibold text-text-primary">{s.symbol}</span>
-                      <span className="text-text-muted text-xs ml-1.5 hidden sm:inline">{s.sector}</span>
+                      <span className="text-text-muted text-xs ml-1.5 hidden sm:inline">{s.securityName}</span>
                     </td>
                     <td className="text-right py-2.5 px-2 font-jetbrains font-medium">{formatNepaliNumber(s.ltp)}</td>
-                    <td className={`text-right py-2.5 px-2 font-jetbrains font-semibold ${getPriceColorClass(s.changePercent)}`}>
-                      {formatPercent(s.changePercent)}
+                    <td className={`text-right py-2.5 px-2 font-jetbrains font-semibold ${getPriceColorClass(s.percentageChange)}`}>
+                      {formatPercent(s.percentageChange)}
                     </td>
-                    <td className="text-right py-2.5 px-2 font-jetbrains text-text-secondary">{formatVolume(s.volume)}</td>
-                    <td className="text-right py-2.5 px-2 font-jetbrains text-text-secondary">{formatNPR(s.turnover, true)}</td>
+                    <td className="text-right py-2.5 px-2 font-jetbrains text-text-secondary">—</td>
+                    <td className="text-right py-2.5 px-2 font-jetbrains text-text-secondary">—</td>
                   </tr>
                 ))}
               </tbody>
@@ -197,12 +204,12 @@ export default function Dashboard() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { label: 'NEPSE Index', value: formatNepaliNumber(nepseIndex.value), sub: formatPercent(nepseIndex.changePercent), color: getPriceColorClass(nepseIndex.change) },
-            { label: 'Total Turnover', value: formatNPR(totalTurnover, true), sub: '', color: 'text-text-primary' },
-            { label: 'Shares Traded', value: formatVolume(totalTradedShares), sub: '', color: 'text-text-primary' },
-            { label: 'Transactions', value: formatNepaliNumber(totalTransactions, 0), sub: '', color: 'text-text-primary' },
-            { label: 'Advancing', value: String(advancing), sub: '', color: 'text-bull-green' },
-            { label: 'Declining', value: String(declining), sub: '', color: 'text-bear-red' },
+            { label: 'NEPSE Index', value: formatNepaliNumber(nepseIndex?.find((i: any) => i.index === 'NEPSE Index')?.currentValue || 0), sub: formatPercent(nepseIndex?.find((i: any) => i.index === 'NEPSE Index')?.perChange || 0), color: getPriceColorClass(nepseIndex?.find((i: any) => i.index === 'NEPSE Index')?.change || 0) },
+            { label: 'Total Turnover', value: formatNPR(summary?.find((s: any) => s.detail === 'Total Turnover Rs:')?.value || summary?.find((s: any) => s.detail === 'Total Turnover')?.value || 0, true), sub: '', color: 'text-text-primary' },
+            { label: 'Shares Traded', value: formatVolume(summary?.find((s: any) => s.detail === 'Total Traded Shares')?.value || 0), sub: '', color: 'text-text-primary' },
+            { label: 'Transactions', value: formatNepaliNumber(summary?.find((s: any) => s.detail === 'Total Transactions')?.value || 0, 0), sub: '', color: 'text-text-primary' },
+            { label: 'Advancing', value: String(summary?.find((s: any) => s.detail === 'Total Advance')?.value || 0), sub: '', color: 'text-bull-green' },
+            { label: 'Declining', value: String(summary?.find((s: any) => s.detail === 'Total Decline')?.value || 0), sub: '', color: 'text-bear-red' },
           ].map((stat, i) => (
             <div key={i} className="text-center">
               <div className="stat-label mb-1">{stat.label}</div>

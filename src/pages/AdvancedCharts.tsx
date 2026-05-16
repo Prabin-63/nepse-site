@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, ChevronDown, Maximize2, Minimize2,
@@ -14,6 +14,7 @@ import { generateOHLCV } from '../utils/indicators';
 import { seedCompanies } from '../data/seed';
 import { fetchTodayPrices, fetchGraphData, fetchCompanyPrice } from '../services/api';
 import { formatNepaliNumber, formatVolume, formatNPR, formatPercent, getPriceColorClass } from '../utils';
+import { useCompanyList, useStockChart, useStockPrice } from '../hooks/useNepseData';
 type IndicatorId = 'volume' | 'rsi' | 'macd' | 'stochastic' | 'atr' | 'obv' | 'williams';
 interface StockInfo {
   symbol: string; companyName: string; sector: string;
@@ -76,62 +77,32 @@ export default function AdvancedCharts() {
   const [activeIndicators, setActiveIndicators] = useState<IndicatorId[]>(['volume', 'rsi']);
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [stockInfo, setStockInfo] = useState<StockInfo | null>(null);
-  const [allStocks, setAllStocks] = useState<StockInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [chartLoading, setChartLoading] = useState(false);
-  const [apiChartData, setApiChartData] = useState<any[] | null>(null);
-  useEffect(() => {
-    async function loadStocks() {
-      try {
-        const data = await fetchTodayPrices();
-        if (data?.content) {
-          const mapped = data.content.map((s: any) => ({
-            symbol: s.symbol, companyName: s.securityName || '', sector: s.sectorName || '',
-            ltp: s.lastTradedPrice, previousClose: s.previousClose,
-            change: s.lastTradedPrice - s.previousClose,
-            changePercent: s.previousClose > 0 ? ((s.lastTradedPrice - s.previousClose) / s.previousClose) * 100 : 0,
-            open: s.openPrice, high: s.highPrice, low: s.lowPrice,
-            volume: s.totalTradeQuantity, turnover: s.totalTurnover,
-            week52High: s.fiftyTwoWeekHigh, week52Low: s.fiftyTwoWeekLow,
-          }));
-          setAllStocks(mapped);
-        }
-      } catch { /* fallback below */ }
-      if (allStocks.length === 0) {
-        setAllStocks(seedCompanies.map(s => ({ ...s, companyName: s.companyName })));
-      }
-      setLoading(false);
-    }
-    loadStocks();
-  }, []);
-  useEffect(() => {
-    async function loadSymbol() {
-      setChartLoading(true);
-      // Stock info from API or seed
-      const apiStock = allStocks.find(s => s.symbol === symbol);
-      const seedStock = seedCompanies.find(s => s.symbol === symbol);
-      if (apiStock) setStockInfo(apiStock);
-      else if (seedStock) setStockInfo({ ...seedStock, companyName: seedStock.companyName } as StockInfo);
+  const { data: companyList, isLoading: loadingCompanies } = useCompanyList();
+  const { data: chartGraphData, isLoading: loadingChart } = useStockChart(symbol);
+  const { data: livePriceData } = useStockPrice(symbol);
+  
+  const allStocks = companyList || seedCompanies;
+  const filteredSymbols = useMemo(() => {
+    return allStocks.filter((s: any) =>
+      s.symbol?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.securityName?.toLowerCase().includes(searchQuery.toLowerCase())
+    ).slice(0, 25).map((s: any) => ({
+      symbol: s.symbol,
+      companyName: s.securityName || s.companyName || '',
+      ltp: s.ltp || 0,
+      changePercent: s.changePercent || 0,
+    }));
+  }, [searchQuery, allStocks]);
 
-      // Try API chart data
-      try {
-        const graphData = await fetchGraphData(symbol);
-        if (graphData && Array.isArray(graphData) && graphData.length > 5) {
-          setApiChartData(graphData);
-        } else {
-          setApiChartData(null);
-        }
-      } catch { setApiChartData(null); }
-      setChartLoading(false);
-    }
-    loadSymbol();
-  }, [symbol, allStocks]);
+  const apiChartData = chartGraphData;
+  const chartLoading = loadingChart;
   const chartData = useMemo(() => {
-    if (apiChartData && apiChartData.length > 0) {
+    const rawData = apiChartData?.content || (Array.isArray(apiChartData) ? apiChartData : []);
+    if (rawData && rawData.length > 0) {
       // Transform API graph data to OHLCV format
       const bars = TFBARS[timeframe] ?? 90;
-      const sorted = [...apiChartData].sort((a: any, b: any) =>
+      const sorted = [...rawData].sort((a: any, b: any) =>
         new Date(a.businessDate || a.date).getTime() - new Date(b.businessDate || b.date).getTime()
       );
       return sorted.slice(-bars).map((d: any) => {
@@ -149,16 +120,8 @@ export default function AdvancedCharts() {
     }
     // Fallback: generate realistic mock data
     const bars = TFBARS[timeframe] ?? 90;
-    return generateOHLCV(symbol, bars, stockInfo?.ltp ?? seedCompanies.find(s => s.symbol === symbol)?.ltp ?? 1000);
-  }, [symbol, timeframe, apiChartData, stockInfo?.ltp]);
-
-  const filteredSymbols = useMemo(() => {
-    const list = allStocks.length > 0 ? allStocks : seedCompanies;
-    return list.filter(s =>
-      s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.companyName.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 25);
-  }, [searchQuery, allStocks]);
+    return generateOHLCV(symbol, bars, livePriceData?.lastTradedPrice ?? seedCompanies.find(s => s.symbol === symbol)?.ltp ?? 1000);
+  }, [symbol, timeframe, apiChartData, livePriceData]);
 
   const toggleOverlay = useCallback((id: string) => {
     setOverlays(prev => prev.map(o => o.id === id ? { ...o, enabled: !o.enabled } : o));
@@ -167,7 +130,22 @@ export default function AdvancedCharts() {
     setActiveIndicators(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   }, []);
 
-  const info = stockInfo || seedCompanies.find(s => s.symbol === symbol);
+  const info = useMemo(() => {
+    let base = allStocks.find((s: any) => s.symbol === symbol) || seedCompanies.find(s => s.symbol === symbol);
+    if (livePriceData) {
+      return {
+        ...base,
+        ltp: livePriceData.lastTradedPrice || base?.ltp,
+        previousClose: livePriceData.previousClose || base?.previousClose,
+        change: (livePriceData.lastTradedPrice || base?.ltp) - (livePriceData.previousClose || base?.previousClose),
+        changePercent: (((livePriceData.lastTradedPrice || base?.ltp) - (livePriceData.previousClose || base?.previousClose)) / (livePriceData.previousClose || 1)) * 100,
+        volume: livePriceData.totalTradeQuantity || base?.volume,
+        turnover: livePriceData.totalTurnover || base?.turnover,
+      };
+    }
+    return base;
+  }, [allStocks, symbol, livePriceData]);
+
   const isUp = (info?.change ?? 0) >= 0;
   const mainHeight = isFullscreen ? window.innerHeight - 240 : 500;
 
