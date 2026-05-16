@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const https = require('https');
@@ -11,8 +11,6 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
-
-// ─── In-Memory Cache ─────────────────────────────────────
 const cache = new Map();
 const CACHE_TTL = {
   'market-open': 30 * 1000,        // 30s
@@ -50,8 +48,6 @@ function getFromCache(key) {
 function setCache(key, data) {
   cache.set(key, { data, timestamp: Date.now() });
 }
-
-// ─── NEPSE Base URL ──────────────────────────────────────
 const NEPSE_BASE = 'https://nepalstock.com.np/api';
 const NEPSE_NEWWEB = 'https://newweb.nepalstock.com.np/api';
 
@@ -63,8 +59,6 @@ const NEPSE_HEADERS = {
   'Referer': 'https://nepalstock.com.np/',
   'Origin': 'https://nepalstock.com.np',
 };
-
-// ─── Generic NEPSE Proxy ────────────────────────────────
 async function fetchNepse(path, baseUrl = NEPSE_BASE, method = 'GET', body = null) {
   const cacheKey = `${method}:${path}:${JSON.stringify(body || '')}`;
   const cached = getFromCache(cacheKey);
@@ -98,8 +92,6 @@ async function fetchNepse(path, baseUrl = NEPSE_BASE, method = 'GET', body = nul
   }
   return null;
 }
-
-// ─── API Routes ──────────────────────────────────────────
 
 // Market Status
 app.get('/api/market-status', async (req, res) => {
@@ -288,8 +280,6 @@ app.get('/api/brokers', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-// ─── Company Price (for Charts page) ─────────────────────
 app.get('/api/company-price/:symbol', async (req, res) => {
   try {
     // Try to find the stock in today's prices
@@ -308,13 +298,9 @@ app.get('/api/company-price/:symbol', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-// ─── Health Check ────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', cache_size: cache.size, uptime: process.uptime() });
 });
-
-// ─── Start Server ────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 NEPSE Elite Proxy Server running on http://localhost:${PORT}`);
   console.log(`📊 Proxying NEPSE data from ${NEPSE_BASE}`);

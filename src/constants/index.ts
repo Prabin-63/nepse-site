@@ -1,6 +1,4 @@
-// ============================================
 // NEPSE Elite — Constants
-// ============================================
 
 export const SECTORS = [
   { id: 'commercial-banks', name: 'Commercial Banks', nameNepali: 'वाणिज्य बैंक' },

@@ -1,8 +1,6 @@
-// ============================================
-// NEPSE Elite — API Service Layer
+﻿// NEPSE Elite — API Service Layer
 // Fetches real data from NEPSE via our proxy server
 // Falls back to seed data when API is unavailable
-// ============================================
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -22,13 +20,9 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | nul
     return null;
   }
 }
-
-// ─── Market Status ────────────────────────────────────
 export async function fetchMarketStatus() {
   return apiFetch<{ isOpen: string }>('/market-status');
 }
-
-// ─── Market Summary / Indices ─────────────────────────
 export async function fetchMarketSummary() {
   return apiFetch<any>('/market-summary');
 }
@@ -36,13 +30,9 @@ export async function fetchMarketSummary() {
 export async function fetchIndex() {
   return apiFetch<any>('/index');
 }
-
-// ─── Today's Prices (all stocks) ──────────────────────
 export async function fetchTodayPrices() {
   return apiFetch<any>('/today-price');
 }
-
-// ─── Top Lists ────────────────────────────────────────
 export async function fetchTopGainers() {
   return apiFetch<any[]>('/top-gainers');
 }
@@ -58,8 +48,6 @@ export async function fetchTopVolume() {
 export async function fetchTopTurnover() {
   return apiFetch<any[]>('/top-turnover');
 }
-
-// ─── Company / Security ───────────────────────────────
 export async function fetchCompanies() {
   return apiFetch<any[]>('/companies');
 }
@@ -71,8 +59,6 @@ export async function fetchSecurityDetail(id: string | number) {
 export async function fetchGraphData(id: string | number) {
   return apiFetch<any>(`/graph/${id}`);
 }
-
-// ─── Floorsheet ───────────────────────────────────────
 export async function fetchFloorsheet(size = 200) {
   return apiFetch<any>('/floorsheet', {
     method: 'POST',
@@ -83,28 +69,18 @@ export async function fetchFloorsheet(size = 200) {
     }),
   });
 }
-
-// ─── Sectors ──────────────────────────────────────────
 export async function fetchSectors() {
   return apiFetch<any[]>('/sectors');
 }
-
-// ─── Supply / Demand ──────────────────────────────────
 export async function fetchSupplyDemand() {
   return apiFetch<any>('/supply-demand');
 }
-
-// ─── Brokers ──────────────────────────────────────────
 export async function fetchBrokers() {
   return apiFetch<any>('/brokers');
 }
-
-// ─── Company Price (for Charts) ───────────────────────
 export async function fetchCompanyPrice(symbol: string) {
   return apiFetch<any>(`/company-price/${symbol}`);
 }
-
-// ─── Health Check ─────────────────────────────────────
 export async function checkApiHealth() {
   return apiFetch<{ status: string; cache_size: number }>('/health');
 }

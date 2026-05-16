@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, ReferenceLine, ComposedChart, Cell,
@@ -26,8 +26,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     </div>
   );
 };
-
-// ─── RSI Panel ──────────────────────────
 export function RSIPanel({ data }: { data: OHLCVBar[] }) {
   const rsi = useMemo(() => calcRSI(data), [data]);
   const chartData = data.map((d, i) => ({ date: d.date, rsi: rsi[i] })).filter(d => d.rsi !== null);
@@ -55,8 +53,6 @@ export function RSIPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── MACD Panel ─────────────────────────
 export function MACDPanel({ data }: { data: OHLCVBar[] }) {
   const { macdLine, signalLine, histogram } = useMemo(() => calcMACD(data), [data]);
   const chartData = data.map((d, i) => ({
@@ -93,8 +89,6 @@ export function MACDPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── Stochastic Panel ───────────────────
 export function StochasticPanel({ data }: { data: OHLCVBar[] }) {
   const { k, d: stochD } = useMemo(() => calcStochastic(data), [data]);
   const chartData = data.map((bar, i) => ({ date: bar.date, k: k[i], d: stochD[i] })).filter(item => item.k !== null);
@@ -121,8 +115,6 @@ export function StochasticPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── ATR Panel ──────────────────────────
 export function ATRPanel({ data }: { data: OHLCVBar[] }) {
   const atr = useMemo(() => calcATR(data), [data]);
   const chartData = data.map((d, i) => ({ date: d.date, atr: atr[i] })).filter(d => d.atr !== null);
@@ -145,8 +137,6 @@ export function ATRPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── OBV Panel ──────────────────────────
 export function OBVPanel({ data }: { data: OHLCVBar[] }) {
   const obv = useMemo(() => calcOBV(data), [data]);
   const chartData = data.map((d, i) => ({ date: d.date, obv: obv[i] }));
@@ -170,8 +160,6 @@ export function OBVPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── Williams %R Panel ──────────────────
 export function WilliamsRPanel({ data }: { data: OHLCVBar[] }) {
   const wr = useMemo(() => calcWilliamsR(data), [data]);
   const chartData = data.map((d, i) => ({ date: d.date, wr: wr[i] })).filter(d => d.wr !== null);
@@ -199,8 +187,6 @@ export function WilliamsRPanel({ data }: { data: OHLCVBar[] }) {
     </div>
   );
 }
-
-// ─── Volume Panel ───────────────────────
 export function VolumePanel({ data }: { data: OHLCVBar[] }) {
   const chartData = data.map(d => ({ date: d.date, volume: d.volume, color: d.close >= d.open }));
   const fmt = (v: number) => v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : `${v}`;

@@ -1,6 +1,4 @@
-// ============================================
 // NEPSE Elite — TypeScript Domain Interfaces
-// ============================================
 
 export interface Company {
   symbol: string;

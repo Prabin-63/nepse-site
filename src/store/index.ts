@@ -1,8 +1,6 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Watchlist, Alert, PortfolioHolding, Transaction } from '../types';
-
-// ─── Market Store ─────────────────────────────────────
 interface MarketState {
   marketStatus: 'OPEN' | 'CLOSED' | 'PRE_OPEN';
   nepseIndex: { value: number; change: number; changePercent: number };
@@ -53,8 +51,6 @@ export const useMarketStore = create<MarketState>((set) => ({
     unchanged: stats.unchanged || 0,
   }),
 }));
-
-// ─── Watchlist Store ──────────────────────────────────
 interface WatchlistState {
   watchlists: Watchlist[];
   activeWatchlistId: string | null;
@@ -107,8 +103,6 @@ export const useWatchlistStore = create<WatchlistState>()(
     { name: 'nepse-watchlists' }
   )
 );
-
-// ─── Portfolio Store ──────────────────────────────────
 interface PortfolioState {
   portfolios: {
     id: string;
@@ -141,8 +135,6 @@ export const usePortfolioStore = create<PortfolioState>()(
     { name: 'nepse-portfolios' }
   )
 );
-
-// ─── Alerts Store ─────────────────────────────────────
 interface AlertState {
   alerts: Alert[];
   addAlert: (alert: Omit<Alert, 'id' | 'triggered' | 'active' | 'createdAt'>) => void;
@@ -173,8 +165,6 @@ export const useAlertStore = create<AlertState>()(
     { name: 'nepse-alerts' }
   )
 );
-
-// ─── UI Store ─────────────────────────────────────────
 interface UIState {
   sidebarOpen: boolean;
   searchOpen: boolean;

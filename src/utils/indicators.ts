@@ -1,6 +1,4 @@
-// ============================================
-// Technical Indicator Calculations
-// ============================================
+﻿// Technical Indicator Calculations
 
 export interface OHLCVBar {
   time: number;       // Unix timestamp
@@ -11,8 +9,6 @@ export interface OHLCVBar {
   close: number;
   volume: number;
 }
-
-// ─── Simple Moving Average ─────────────────
 export function calcSMA(data: OHLCVBar[], period: number): (number | null)[] {
   return data.map((_, i) => {
     if (i < period - 1) return null;
@@ -20,8 +16,6 @@ export function calcSMA(data: OHLCVBar[], period: number): (number | null)[] {
     return slice.reduce((s, d) => s + d.close, 0) / period;
   });
 }
-
-// ─── Exponential Moving Average ───────────
 export function calcEMA(data: OHLCVBar[], period: number): (number | null)[] {
   const result: (number | null)[] = new Array(data.length).fill(null);
   const k = 2 / (period + 1);
@@ -34,8 +28,6 @@ export function calcEMA(data: OHLCVBar[], period: number): (number | null)[] {
   }
   return result;
 }
-
-// ─── Bollinger Bands ──────────────────────
 export function calcBollingerBands(data: OHLCVBar[], period = 20, multiplier = 2) {
   const sma = calcSMA(data, period);
   return data.map((_, i) => {
@@ -51,8 +43,6 @@ export function calcBollingerBands(data: OHLCVBar[], period = 20, multiplier = 2
     };
   });
 }
-
-// ─── RSI ──────────────────────────────────
 export function calcRSI(data: OHLCVBar[], period = 14): (number | null)[] {
   const result: (number | null)[] = new Array(data.length).fill(null);
   let avgGain = 0, avgLoss = 0;
@@ -74,8 +64,6 @@ export function calcRSI(data: OHLCVBar[], period = 14): (number | null)[] {
   }
   return result;
 }
-
-// ─── MACD ─────────────────────────────────
 export function calcMACD(data: OHLCVBar[], fast = 12, slow = 26, signal = 9) {
   const emaFast = calcEMA(data, fast);
   const emaSlow = calcEMA(data, slow);
@@ -104,8 +92,6 @@ export function calcMACD(data: OHLCVBar[], fast = 12, slow = 26, signal = 9) {
   });
   return { macdLine, signalLine, histogram };
 }
-
-// ─── Stochastic ───────────────────────────
 export function calcStochastic(data: OHLCVBar[], period = 14, smoothK = 3, smoothD = 3) {
   const rawK: (number | null)[] = data.map((_, i) => {
     if (i < period - 1) return null;
@@ -128,8 +114,6 @@ export function calcStochastic(data: OHLCVBar[], period = 14, smoothK = 3, smoot
   });
   return { k, d };
 }
-
-// ─── ATR ──────────────────────────────────
 export function calcATR(data: OHLCVBar[], period = 14): (number | null)[] {
   const tr = data.map((d, i) => {
     if (i === 0) return d.high - d.low;
@@ -141,8 +125,6 @@ export function calcATR(data: OHLCVBar[], period = 14): (number | null)[] {
     return tr.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
   });
 }
-
-// ─── OBV ──────────────────────────────────
 export function calcOBV(data: OHLCVBar[]): number[] {
   let obv = 0;
   return data.map((d, i) => {
@@ -152,8 +134,6 @@ export function calcOBV(data: OHLCVBar[]): number[] {
     return obv;
   });
 }
-
-// ─── Williams %R ──────────────────────────
 export function calcWilliamsR(data: OHLCVBar[], period = 14): (number | null)[] {
   return data.map((_, i) => {
     if (i < period - 1) return null;
@@ -164,8 +144,6 @@ export function calcWilliamsR(data: OHLCVBar[], period = 14): (number | null)[] 
     return ((high - data[i].close) / (high - low)) * -100;
   });
 }
-
-// ─── VWAP ─────────────────────────────────
 export function calcVWAP(data: OHLCVBar[]): number[] {
   let cumPV = 0, cumV = 0;
   return data.map(d => {
@@ -175,8 +153,6 @@ export function calcVWAP(data: OHLCVBar[]): number[] {
     return cumV > 0 ? cumPV / cumV : typical;
   });
 }
-
-// ─── Heikin-Ashi ──────────────────────────
 export function calcHeikinAshi(data: OHLCVBar[]): OHLCVBar[] {
   return data.map((d, i) => {
     const prevOpen = i > 0 ? (data[i-1].open + data[i-1].close) / 2 : d.open;
@@ -186,8 +162,6 @@ export function calcHeikinAshi(data: OHLCVBar[]): OHLCVBar[] {
     return { ...d, open: haOpen, close: haClose, high: Math.max(d.high, haOpen, haClose), low: Math.min(d.low, haOpen, haClose) };
   });
 }
-
-// ─── Generate Mock OHLCV ──────────────────
 export function generateOHLCV(symbol: string, bars = 300, basePrice = 1000): OHLCVBar[] {
   const data: OHLCVBar[] = [];
   let price = basePrice;

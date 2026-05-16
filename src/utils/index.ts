@@ -1,6 +1,4 @@
-// ============================================
 // NEPSE Elite — Utility Functions
-// ============================================
 
 import { BROKER_FEE_TIERS, SEBON_FEE, DP_CHARGE, CGT_INDIVIDUAL_SHORT, CGT_INDIVIDUAL_LONG, CGT_INSTITUTION } from '../constants';
 

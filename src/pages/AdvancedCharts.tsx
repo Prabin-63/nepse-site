@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, ChevronDown, Maximize2, Minimize2,
@@ -14,8 +14,6 @@ import { generateOHLCV } from '../utils/indicators';
 import { seedCompanies } from '../data/seed';
 import { fetchTodayPrices, fetchGraphData, fetchCompanyPrice } from '../services/api';
 import { formatNepaliNumber, formatVolume, formatNPR, formatPercent, getPriceColorClass } from '../utils';
-
-// ─── Types & Constants ────────────────────
 type IndicatorId = 'volume' | 'rsi' | 'macd' | 'stochastic' | 'atr' | 'obv' | 'williams';
 interface StockInfo {
   symbol: string; companyName: string; sector: string;
@@ -67,7 +65,6 @@ function IndicatorPanel({ id, data }: { id: IndicatorId; data: any[] }) {
 }
 
 export default function AdvancedCharts() {
-  // ─── State ──────────────────────────────
   const [symbol, setSymbol] = useState('NABIL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
@@ -84,8 +81,6 @@ export default function AdvancedCharts() {
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
   const [apiChartData, setApiChartData] = useState<any[] | null>(null);
-
-  // ─── Load all stocks for search ─────────
   useEffect(() => {
     async function loadStocks() {
       try {
@@ -110,8 +105,6 @@ export default function AdvancedCharts() {
     }
     loadStocks();
   }, []);
-
-  // ─── Load stock info + chart data on symbol change ────
   useEffect(() => {
     async function loadSymbol() {
       setChartLoading(true);
@@ -134,8 +127,6 @@ export default function AdvancedCharts() {
     }
     loadSymbol();
   }, [symbol, allStocks]);
-
-  // ─── Chart data (API or generated) ──────
   const chartData = useMemo(() => {
     if (apiChartData && apiChartData.length > 0) {
       // Transform API graph data to OHLCV format
