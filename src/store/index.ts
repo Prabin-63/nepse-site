@@ -256,6 +256,8 @@ interface UIState {
   calendarMode: 'BS' | 'AD' | 'both';
   numberFormat: 'nepali' | 'international';
   selectedBrokerId: string | null;
+  displayName: string;
+  setDisplayName: (name: string) => void;
   toggleSidebar: () => void;
   toggleSearch: () => void;
   setTheme: (theme: 'dark' | 'light' | 'system') => void;
@@ -277,6 +279,8 @@ export const useUIStore = create<UIState>()(
       calendarMode: 'BS',
       numberFormat: 'nepali',
       selectedBrokerId: null,
+      displayName: 'Guest User',
+      setDisplayName: (displayName) => set({ displayName }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleSearch: () => set((s) => ({ searchOpen: !s.searchOpen })),
       setTheme: (theme) => set({ theme }),

@@ -5,7 +5,13 @@ import { useAlertStore } from '../../store/alertStore';
 import { useCompanyList, useLiveTrading } from '../../hooks/useNepseData';
 import { formatNepaliNumber } from '../../utils';
 
-export default function PriceAlertManager({ onClose }: { onClose: () => void }) {
+export default function PriceAlertManager({
+  onClose,
+  embedded = false,
+}: {
+  onClose: () => void;
+  embedded?: boolean;
+}) {
   const { alerts, addAlert, removeAlert, toggleAlert } = useAlertStore();
   const { data: companies } = useCompanyList();
   const { data: liveData } = useLiveTrading();
@@ -35,13 +41,17 @@ export default function PriceAlertManager({ onClose }: { onClose: () => void }) 
   };
 
   return (
-    <div className="w-80 sm:w-96 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-syne font-bold text-lg flex items-center gap-2">
-          <Bell size={18} className="text-brand-gold" /> Price Alerts
-        </h3>
-        <button onClick={onClose} className="text-text-muted hover:text-bear-red">✕</button>
-      </div>
+    <div className={embedded ? 'p-4' : 'w-80 sm:w-96 p-4'}>
+      {!embedded && (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-syne font-bold text-lg flex items-center gap-2">
+            <Bell size={18} className="text-brand-gold" /> Price Alerts
+          </h3>
+          <button type="button" onClick={onClose} className="text-text-muted hover:text-bear-red">
+            ✕
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mb-6 space-y-3 bg-bg-base/50 p-3 rounded-lg border border-bg-border/50">
         <div className="text-xs font-bold text-text-secondary uppercase">Create New Alert</div>

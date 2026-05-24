@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Settings, User, Bell, Shield, Palette, Database, Globe, ChevronRight, Check } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useUIStore } from '../store';
 
 export default function SettingsPage() {
-  const { theme, setTheme, accentColor, setAccentColor, calendarMode, setCalendarMode, compactMode, setCompactMode } = useUIStore();
+  const location = useLocation();
+  const {
+    theme,
+    setTheme,
+    accentColor,
+    setAccentColor,
+    calendarMode,
+    setCalendarMode,
+    compactMode,
+    setCompactMode,
+    displayName,
+    setDisplayName,
+  } = useUIStore();
   const [activeSection, setActiveSection] = useState('appearance');
   const [notifications, setNotifications] = useState({ price: true, news: true, ipo: false, system: true });
   const [currency, setCurrency] = useState('NPR');
@@ -18,6 +32,13 @@ export default function SettingsPage() {
     { id: 'regional', label: 'Regional', icon: Globe },
     { id: 'security', label: 'Security', icon: Shield },
   ];
+
+  useEffect(() => {
+    const section = (location.state as { section?: string } | null)?.section;
+    if (section && sections.some((s) => s.id === section)) {
+      setActiveSection(section);
+    }
+  }, [location.state]);
 
   const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) => (
     <button
@@ -174,18 +195,46 @@ export default function SettingsPage() {
             </>
           )}
 
-          {(activeSection === 'account' || activeSection === 'security' || activeSection === 'data') && (
+          {activeSection === 'account' && (
+            <>
+              <h3 className="font-syne font-bold text-lg">Profile</h3>
+              <p className="text-xs text-text-muted mb-4">
+                Your name is stored locally in this browser and shown in the account menu.
+              </p>
+              <div className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-primary">Display name</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Your name"
+                    className="input-field w-full"
+                    maxLength={40}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn-primary py-2 px-4 text-sm"
+                  onClick={() => toast.success('Profile saved')}
+                >
+                  Save profile
+                </button>
+              </div>
+            </>
+          )}
+
+          {(activeSection === 'security' || activeSection === 'data') && (
             <div className="py-8 text-center space-y-3">
               <div className="w-16 h-16 rounded-full bg-bg-elevated mx-auto flex items-center justify-center text-text-muted">
-                {activeSection === 'account' ? <User size={28} /> : activeSection === 'security' ? <Shield size={28} /> : <Database size={28} />}
+                {activeSection === 'security' ? <Shield size={28} /> : <Database size={28} />}
               </div>
               <h3 className="font-syne font-bold text-text-primary">
-                {activeSection === 'account' ? 'Account Settings' : activeSection === 'security' ? 'Security' : 'Data & Privacy'}
+                {activeSection === 'security' ? 'Security' : 'Data & Privacy'}
               </h3>
               <p className="text-sm text-text-muted max-w-sm mx-auto">
-                Sign in with your NEPSE Elite account to manage {activeSection === 'account' ? 'your profile, BOID, and broker details' : activeSection === 'security' ? 'passwords, 2FA, and active sessions' : 'your data, exports, and privacy preferences'}.
+                Cloud sign-in is not enabled yet. Security and data export options will be available in a future update.
               </p>
-              <button className="btn-primary px-8 py-2.5 mt-2">Sign In / Create Account</button>
             </div>
           )}
         </motion.div>
