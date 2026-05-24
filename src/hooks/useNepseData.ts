@@ -115,6 +115,18 @@ export const useStockDepth = (symbol: string) => {
   return useQuery({ queryKey: ["stock-depth", symbol], queryFn: () => nepseApi.getStockDepth(symbol), staleTime: stale, refetchInterval: fast, enabled: !!symbol, placeholderData: keepPreviousData });
 };
 
+export const useStockBrokers = (symbol: string) => {
+  const { medium, staleMed } = useLiveInterval();
+  return useQuery({
+    queryKey: ["stock-brokers", symbol],
+    queryFn: () => nepseApi.getStockBrokers(symbol),
+    staleTime: staleMed,
+    refetchInterval: medium,
+    enabled: !!symbol,
+    placeholderData: keepPreviousData,
+  });
+};
+
 export const useScreener = (params: any) => {
   const { medium, staleMed } = useLiveInterval();
   const queryString = new URLSearchParams();

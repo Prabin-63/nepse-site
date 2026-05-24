@@ -39,6 +39,7 @@ export const nepseApi = {
   getStockPrice: (symbol: string) => apiFetch<any>(`/api/stocks/${symbol}/price`),
   getStockDetail: (symbol: string) => apiFetch<any>(`/api/stocks/${symbol}/detail`),
   getStockDepth: (symbol: string) => apiFetch<any>(`/api/stocks/${symbol}/depth`),
+  getStockBrokers: (symbol: string) => apiFetch<any[]>(`/api/stocks/${symbol}/brokers`),
   getStockDailyChart: (symbol: string) => apiFetch<any>(`/api/stocks/${symbol}/chart/daily`),
   getStockChart: (symbol: string) => apiFetch<any>(`/api/stocks/${symbol}/chart`),
   getScreener: (params: string) => apiFetch<any[]>(`/api/stocks/screener?${params}`),

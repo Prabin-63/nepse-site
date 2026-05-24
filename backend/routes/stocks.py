@@ -258,6 +258,74 @@ async def get_stock_detail(symbol: str):
         return {"status": "ok", "source": "live", "data": data}
     raise HTTPException(status_code=404, detail=f"Detail not found for {symbol}")
 
+_EMPTY_DEPTH = {
+    "marketDepth": {
+        "buyMarketDepthList": [],
+        "sellMarketDepthList": [],
+        "totalBuyQty": 0,
+        "totalSellQty": 0,
+    }
+}
+
+
+@router.get("/{symbol}/brokers")
+async def get_stock_broker_activity(symbol: str):
+    """Aggregate today's broker buy/sell for a single symbol from floorsheet."""
+    sym = symbol.upper()
+    cache_key = f"broker_activity_{sym}"
+    cached = cache.get(cache_key)
+    if cached:
+        return {"status": "ok", "source": "cache", "data": cached}
+
+    from routes.brokers import BROKER_MAP
+
+    floorsheet = cache.get("floorsheet_full")
+    if not floorsheet:
+        company = await asyncio.to_thread(nepse_client.get_company_floorsheet, sym)
+        if company:
+            floorsheet = company
+        else:
+            floorsheet = await asyncio.to_thread(nepse_client.get_floorsheet)
+            if floorsheet:
+                cache.set("floorsheet_full", floorsheet, 300)
+
+    if not floorsheet:
+        return {"status": "ok", "source": "empty", "data": []}
+
+    trades = [t for t in floorsheet if (t.get("stockSymbol") or "").upper() == sym]
+    if not trades and floorsheet:
+        company = await asyncio.to_thread(nepse_client.get_company_floorsheet, sym)
+        trades = company or []
+
+    stats = {}
+    for trade in trades:
+        amount = (trade.get("contractRate") or 0) * (trade.get("contractQuantity") or 0)
+        qty = trade.get("contractQuantity") or 0
+        for side, member_key in (("buy", "buyerMemberId"), ("sell", "sellerMemberId")):
+            bid = str(trade.get(member_key) or "")
+            if not bid or bid == "None":
+                continue
+            if bid not in stats:
+                stats[bid] = {
+                    "id": bid,
+                    "name": BROKER_MAP.get(bid, f"Broker #{bid}"),
+                    "buy": 0,
+                    "sell": 0,
+                    "buyQty": 0,
+                    "sellQty": 0,
+                }
+            if side == "buy":
+                stats[bid]["buy"] += amount
+                stats[bid]["buyQty"] += qty
+            else:
+                stats[bid]["sell"] += amount
+                stats[bid]["sellQty"] += qty
+
+    result = sorted(stats.values(), key=lambda x: x["buy"] + x["sell"], reverse=True)
+    cache.set(cache_key, result, 120)
+    return {"status": "ok", "source": "live", "data": result}
+
+
 @router.get("/{symbol}/depth")
 async def get_stock_depth(symbol: str):
     cache_key = f"depth_{symbol.upper()}"
@@ -268,7 +336,7 @@ async def get_stock_depth(symbol: str):
     if data:
         cache.set(cache_key, data, 15)
         return {"status": "ok", "source": "live", "data": data}
-    raise HTTPException(status_code=404, detail=f"Market depth not found for {symbol}")
+    return {"status": "ok", "source": "empty", "data": _EMPTY_DEPTH}
 
 @router.get("/{symbol}/chart/daily")
 async def get_stock_daily_chart(symbol: str):

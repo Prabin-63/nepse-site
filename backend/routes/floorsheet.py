@@ -54,17 +54,35 @@ async def get_full_floorsheet():
         return {"status": "ok", "source": "live", "total": len(data), "data": data}
     raise HTTPException(status_code=503, detail="Floorsheet data unavailable")
 
+def _filter_floorsheet_by_symbol(floorsheet: list, symbol: str) -> list:
+    sym = symbol.upper()
+    return [
+        t for t in floorsheet
+        if (t.get("stockSymbol") or t.get("stock_symbol") or t.get("symbol") or "").upper() == sym
+    ]
+
+
 @router.get("/{symbol}")
 async def get_company_floorsheet(symbol: str):
-    cache_key = f"floorsheet_{symbol.upper()}"
+    sym = symbol.upper()
+    cache_key = f"floorsheet_{sym}"
     cached = cache.get(cache_key)
     if cached:
-        return {"status": "ok", "source": "cache", "symbol": symbol, "data": cached}
-    
-    data = await asyncio.to_thread(nepse_client.get_company_floorsheet, symbol.upper())
-    if data is not None:
+        return {"status": "ok", "source": "cache", "symbol": sym, "data": cached}
+
+    data = await asyncio.to_thread(nepse_client.get_company_floorsheet, sym)
+    if data:
         cache.set(cache_key, data, 300)
-        return {"status": "ok", "source": "live", "symbol": symbol, "data": data}
-    
-    # Return empty list if no data found instead of 404
-    return {"status": "ok", "source": "live", "symbol": symbol, "data": []}
+        return {"status": "ok", "source": "live", "symbol": sym, "data": data}
+
+    # Fallback: filter from full-day floorsheet cache
+    full = cache.get("floorsheet_full")
+    if not full:
+        full = await asyncio.to_thread(_fetch_floorsheet_sync)
+    if full:
+        filtered = _filter_floorsheet_by_symbol(full, sym)
+        if filtered:
+            cache.set(cache_key, filtered, 300)
+            return {"status": "ok", "source": "floorsheet_filter", "symbol": sym, "data": filtered}
+
+    return {"status": "ok", "source": "live", "symbol": sym, "data": []}
