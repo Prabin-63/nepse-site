@@ -3,7 +3,7 @@ import { Search, Bell, User, Menu, Wifi, WifiOff } from 'lucide-react';
 import { useUIStore } from '../../store';
 import { formatNepaliNumber, formatPercent, getPriceColorClass } from '../../utils';
 import { useDashboard } from '../../hooks/useNepseData';
-import { timeToMarketEvent, isNepalMarketOpen } from '../../utils/marketHours';
+import { timeToMarketEvent, getMarketStatus } from '../../utils/marketHours';
 import { nepseApi } from '../../lib/api';
 import NotificationDropdown from './NotificationDropdown';
 import AccountDropdown from './AccountDropdown';
@@ -68,10 +68,29 @@ export default function TopBar() {
   }
   
   const marketStatusObj = dashboardData?.market_status;
-  const marketStatus = isNepalMarketOpen() ? 'OPEN' : 'CLOSED'; 
+  let marketStatus = getMarketStatus() as string; 
+  
+  if (marketStatusObj?.isOpen) {
+    const apiStatus = marketStatusObj.isOpen.toUpperCase();
+    // Override local time-based status with API status for mid-day circuit breakers
+    if (apiStatus === 'HALTED' || apiStatus === 'SUSPENDED') {
+      marketStatus = apiStatus;
+    }
+  }
 
-  const statusColor = marketStatus === 'OPEN' ? 'bg-bull-green' : (marketStatus as string) === 'PRE_OPEN' ? 'bg-neutral-yellow' : 'bg-bear-red';
-  const statusPulse = marketStatus === 'OPEN' ? 'animate-pulse' : '';
+  let statusColor = 'bg-bear-red';
+  let statusPulse = '';
+  
+  if (marketStatus === 'OPEN') {
+    statusColor = 'bg-bull-green';
+    statusPulse = 'animate-pulse';
+  } else if (marketStatus === 'PRE_OPEN') {
+    statusColor = 'bg-neutral-yellow';
+    statusPulse = 'animate-pulse';
+  } else if (marketStatus === 'HALTED' || marketStatus === 'SUSPENDED') {
+    statusColor = 'bg-brand-gold';
+    statusPulse = 'animate-pulse';
+  }
   const total = advancing + declining + unchanged;
   const advanceRatio = total > 0 ? (advancing / total) * 100 : 50;
 
@@ -96,6 +115,19 @@ export default function TopBar() {
           </span>
         </div>
 
+        <div className="hidden md:flex items-center gap-2 border-l border-bg-border pl-4 shrink-0">
+          <div className={`w-2 h-2 rounded-full ${statusColor} ${statusPulse}`} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+            Market {marketStatus}
+          </span>
+          {countdown.seconds > 0 && (
+            <span className="text-[10px] font-jetbrains text-text-secondary">
+              ({hours}h {minutes}m {seconds}s to {countdown.nextEvent})
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1" />
 
         <button 
           onClick={toggleSearch} 
