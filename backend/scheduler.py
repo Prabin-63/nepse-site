@@ -26,6 +26,7 @@ def is_market_hours() -> bool:
     total_mins = now.hour * 60 + now.minute
     return 595 <= total_mins < 905
 
+import time
 import concurrent.futures
 import threading
 
@@ -39,18 +40,24 @@ def _fetch_and_cache(name, fetch_func, ttl):
         logger.error(f"Error fetching {name}: {e}")
 
 def refresh_live_data():
-    """Called every 15 seconds during market hours for near-real-time data."""
-    if not is_market_hours():
-        logger.debug("Market closed — skipping live refresh")
-        return
-    logger.info("Refreshing live market data (concurrently)...")
-    
+    """Refresh live data every 15s during market hours, every 60s when closed."""
+    market_open = is_market_hours()
+    if not market_open:
+        # Off-hours: refresh every 4th cycle (~60s) so last session data stays available
+        if int(time.time()) % 60 >= 15:
+            return
+        logger.info("Refreshing market data (off-hours)...")
+        ttl = TTL_MEDIUM
+    else:
+        logger.info("Refreshing live market data (concurrently)...")
+        ttl = TTL_LIVE
+
     tasks = [
-        ("live_trading", nepse_client.get_live_trading, TTL_LIVE),
-        ("top_gainers", nepse_client.get_top_gainers, TTL_LIVE),
-        ("top_losers", nepse_client.get_top_losers, TTL_LIVE),
-        ("top_turnover", nepse_client.get_top_turnover, TTL_LIVE),
-        ("nepse_index", nepse_client.get_nepse_index, TTL_LIVE),
+        ("live_trading", nepse_client.get_live_trading, ttl),
+        ("top_gainers", nepse_client.get_top_gainers, ttl),
+        ("top_losers", nepse_client.get_top_losers, ttl),
+        ("top_turnover", nepse_client.get_top_turnover, ttl),
+        ("nepse_index", nepse_client.get_nepse_index, ttl),
         ("market_summary", nepse_client.get_market_summary, TTL_MEDIUM),
     ]
     

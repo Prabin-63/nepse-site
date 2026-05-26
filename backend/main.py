@@ -17,6 +17,7 @@ from routes.sbie import router as sbie_router
 from scheduler import start_scheduler
 
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 logging.basicConfig(
     level=logging.INFO,

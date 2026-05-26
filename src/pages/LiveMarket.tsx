@@ -2,8 +2,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Filter, Star, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
-
-import { fetchTodayPrices } from '../services/api';
 import { formatNepaliNumber, formatPercent, formatVolume, formatNPR, getPriceColorClass } from '../utils';
 import { useLiveTrading, useCompanyList } from '../hooks/useNepseData';
 import { useWatchlistStore } from '../store';

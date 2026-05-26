@@ -16,13 +16,14 @@ import IPOZone from './pages/IPOZone';
 import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import Fundamentals from './pages/Fundamentals';
-import BrokerIntel from './pages/BrokerIntel';
 import SectorAnalysis from './pages/SectorAnalysis';
 import Calculators from './pages/Calculators';
 import AdvancedCharts from './pages/AdvancedCharts';
 import MutualFunds from './pages/MutualFunds';
 import NewsAlerts from './pages/NewsAlerts';
 import Education from './pages/Education';
+import LearnFromVideos from './pages/education/LearnFromVideos';
+import VideoCourse from './pages/education/VideoCourse';
 import SettingsPage from './pages/SettingsPage';
 import MarketHeatMap from './pages/MarketHeatMap';
 import TradingSignals from './pages/TradingSignals';
@@ -34,6 +35,12 @@ import ManipulationRiskScanner from './pages/sbie/ManipulationRiskScanner';
 import StealthAccumulationDetector from './pages/sbie/StealthAccumulationDetector';
 import BrokerCoordinationAlert from './pages/sbie/BrokerCoordinationAlert';
 import BrokerScorecard from './pages/sbie/BrokerScorecard';
+import BrokerAnalysis from './pages/broker-analysis/BrokerAnalysis';
+import BrokerBreakdown from './pages/broker-analysis/BrokerBreakdown';
+import BrokerTradeSummary from './pages/broker-analysis/BrokerTradeSummary';
+import BrokerTradedStocks from './pages/broker-analysis/BrokerTradedStocks';
+import BrokerHoldings from './pages/broker-analysis/BrokerHoldings';
+import AccumulationDistribution from './pages/broker-analysis/AccumulationDistribution';
 import { useAlertChecker } from './hooks/useAlertChecker';
 
 export default function App() {
@@ -106,8 +113,18 @@ export default function App() {
             <Route path="/stock/:symbol" element={<StockDetail />} />
             <Route path="/charts" element={<AdvancedCharts />} />
             <Route path="/screener" element={<Screener />} />
-            <Route path="/floorsheet" element={<Floorsheet />} />
-            <Route path="/broker-intel" element={<BrokerIntel />} />
+            <Route path="/floorsheet" element={<Navigate to="/broker-analysis/floorsheet" replace />} />
+            <Route path="/broker-intel" element={<Navigate to="/broker-analysis/summary" replace />} />
+            <Route path="/broker-analysis" element={<BrokerAnalysis />}>
+              <Route index element={<Navigate to="breakdown" replace />} />
+              <Route path="breakdown" element={<BrokerBreakdown />} />
+              <Route path="summary" element={<BrokerTradeSummary />} />
+              <Route path="profile" element={<Navigate to="../summary" replace />} />
+              <Route path="traded-stocks" element={<BrokerTradedStocks />} />
+              <Route path="holdings" element={<BrokerHoldings />} />
+              <Route path="accum-dist" element={<AccumulationDistribution />} />
+              <Route path="floorsheet" element={<Floorsheet />} />
+            </Route>
             <Route path="/ipo-zone" element={<IPOZone />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/watchlist" element={<Watchlist />} />
@@ -117,6 +134,8 @@ export default function App() {
             <Route path="/calculators" element={<Calculators />} />
             <Route path="/news-alerts" element={<NewsAlerts />} />
             <Route path="/education" element={<Education />} />
+            <Route path="/education/videos" element={<LearnFromVideos />} />
+            <Route path="/education/videos/:courseId" element={<VideoCourse />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/heat-map" element={<MarketHeatMap />} />
             <Route path="/signals" element={<TradingSignals />} />

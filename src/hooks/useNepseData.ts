@@ -12,9 +12,9 @@ function useIsMarketOpen(): boolean {
   return mins >= 595 && mins < 910; // 9:55 AM to 3:10 PM NPT (slight buffer)
 }
 
-const FAST = 15 * 1000;       // 15s — matches backend scheduler
-const MEDIUM = 45 * 1000;     // 45s
-const SLOW = 2 * 60 * 1000;   // 2min (off-hours)
+const FAST = 10 * 1000;        // 10s — live market data
+const MEDIUM = 30 * 1000;      // 30s
+const SLOW = 60 * 1000;        // 1min (off-hours)
 const STATIC = 30 * 60 * 1000; // 30min (rarely changes)
 
 function useLiveInterval() {
@@ -184,4 +184,72 @@ export const useBrokers = () =>
 export const useBrokerDetail = (id: string) => {
   const { medium, staleMed } = useLiveInterval();
   return useQuery({ queryKey: ["broker-detail", id], queryFn: () => nepseApi.getBrokerDetail(id), staleTime: staleMed, refetchInterval: medium, enabled: !!id, placeholderData: keepPreviousData });
+};
+
+export interface BrokerAnalysisFilters {
+  period: string;
+  from?: string;
+  to?: string;
+}
+
+export const useBrokerBreakdown = (filters: BrokerAnalysisFilters, top = 10) => {
+  const { fast, stale } = useLiveInterval();
+  return useQuery({
+    queryKey: ["broker-breakdown", filters.period, filters.from, filters.to, top],
+    queryFn: () => nepseApi.getBrokerBreakdown({ ...filters, top }),
+    staleTime: stale,
+    refetchInterval: fast,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useBrokerTradedStock = (symbol: string, filters: BrokerAnalysisFilters) => {
+  const { medium, staleMed } = useLiveInterval();
+  return useQuery({
+    queryKey: ["broker-traded-stock", symbol, filters.period, filters.from, filters.to],
+    queryFn: () => nepseApi.getBrokerTradedStock(symbol, filters),
+    staleTime: staleMed,
+    refetchInterval: medium,
+    enabled: !!symbol,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useBrokerHoldings = (symbol: string, filters: BrokerAnalysisFilters) => {
+  const { medium, staleMed } = useLiveInterval();
+  return useQuery({
+    queryKey: ["broker-holdings", symbol, filters.period, filters.from, filters.to],
+    queryFn: () => nepseApi.getBrokerHoldings(symbol, { ...filters, top: 15 }),
+    staleTime: staleMed,
+    refetchInterval: medium,
+    enabled: !!symbol,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useAccumulationDistribution = (
+  filters: BrokerAnalysisFilters,
+  type: "accumulation" | "distribution" | "both" = "both",
+  limit = 20,
+) => {
+  const { medium, staleMed } = useLiveInterval();
+  return useQuery({
+    queryKey: ["accumulation-distribution", type, limit, filters.period, filters.from, filters.to],
+    queryFn: () => nepseApi.getAccumulationDistribution({ ...filters, type, limit }),
+    staleTime: staleMed,
+    refetchInterval: medium,
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useBrokerProfile = (id: string, filters: BrokerAnalysisFilters) => {
+  const { medium, staleMed } = useLiveInterval();
+  return useQuery({
+    queryKey: ["broker-profile", id, filters.period, filters.from, filters.to],
+    queryFn: () => nepseApi.getBrokerProfile(id, filters),
+    staleTime: staleMed,
+    refetchInterval: medium,
+    enabled: !!id,
+    placeholderData: keepPreviousData,
+  });
 };

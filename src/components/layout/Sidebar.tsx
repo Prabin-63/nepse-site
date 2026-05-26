@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { useUIStore } from '../../store';
 import {
-  LayoutDashboard, Activity, CandlestickChart, Filter, FileSpreadsheet,
-  Building, Building2, Briefcase, Star, BookOpen, PieChart, Landmark,
+  LayoutDashboard, Activity, CandlestickChart, Filter,
+  Building, Briefcase, Star, BookOpen, PieChart, Landmark,
   Calculator, Bell, GraduationCap, Settings, ChevronLeft, ChevronRight, TrendingUp,
   ArrowRightLeft, Target, Network, ShieldAlert, Map, Zap, MapPin, Award, Calendar, Clipboard
 } from 'lucide-react';
@@ -23,8 +23,7 @@ const navGroups = [
       { path: '/signals', label: 'Trading Signals', icon: Zap },
       { path: '/compare', label: 'Compare Stocks', icon: ArrowRightLeft },
       { path: '/screener', label: 'Screener', icon: Filter },
-      { path: '/floorsheet', label: 'Floorsheet', icon: FileSpreadsheet },
-      { path: '/broker-intel', label: 'Broker Intel', icon: Building },
+      { path: '/broker-analysis', label: 'Broker Analysis', icon: Building },
       { path: '/fundamentals', label: 'Fundamentals', icon: BookOpen },
       { path: '/sector', label: 'Sectors', icon: PieChart },
     ],

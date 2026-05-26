@@ -64,7 +64,7 @@ async def get_dashboard_summary():
         "data": results
     }
     
-    cache.set("full_dashboard_payload", payload, 10) # Cache the whole payload for 10 seconds
+    cache.set("full_dashboard_payload", payload, 5)  # Cache the whole payload for 5 seconds
     return payload
 
 def get_recent_news_events():

@@ -1,86 +1,66 @@
-﻿// NEPSE Elite — API Service Layer
-// Fetches real data from NEPSE via our proxy server
-// Falls back to seed data when API is unavailable
+﻿// Legacy API helpers — routed through the Python backend (port 8000)
+import { nepseApi } from '@/lib/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    console.warn(`API fetch failed: ${path}`);
-    return null;
-  }
-}
 export async function fetchMarketStatus() {
-  return apiFetch<{ isOpen: string }>('/market-status');
+  return nepseApi.getMarketStatus();
 }
+
 export async function fetchMarketSummary() {
-  return apiFetch<any>('/market-summary');
+  return nepseApi.getMarketSummary();
 }
 
 export async function fetchIndex() {
-  return apiFetch<any>('/index');
+  return nepseApi.getNepseIndex();
 }
+
 export async function fetchTodayPrices() {
-  return apiFetch<any>('/today-price');
+  return nepseApi.getLiveTrading();
 }
+
 export async function fetchTopGainers() {
-  return apiFetch<any[]>('/top-gainers');
+  return nepseApi.getTopGainers();
 }
 
 export async function fetchTopLosers() {
-  return apiFetch<any[]>('/top-losers');
+  return nepseApi.getTopLosers();
 }
 
 export async function fetchTopVolume() {
-  return apiFetch<any[]>('/top-volume');
+  return nepseApi.getTopVolume();
 }
 
 export async function fetchTopTurnover() {
-  return apiFetch<any[]>('/top-turnover');
+  return nepseApi.getTopTurnover();
 }
+
 export async function fetchCompanies() {
-  return apiFetch<any[]>('/companies');
+  return nepseApi.getCompanyList();
 }
 
-export async function fetchSecurityDetail(id: string | number) {
-  return apiFetch<any>(`/security/${id}`);
+export async function fetchSecurityDetail(symbol: string | number) {
+  return nepseApi.getStockDetail(String(symbol));
 }
 
-export async function fetchGraphData(id: string | number) {
-  return apiFetch<any>(`/graph/${id}`);
+export async function fetchGraphData(symbol: string | number) {
+  return nepseApi.getStockChart(String(symbol));
 }
-export async function fetchFloorsheet(size = 200) {
-  return apiFetch<any>('/floorsheet', {
-    method: 'POST',
-    body: JSON.stringify({
-      id: '',
-      size,
-      sort: { sort: [{ field: 'contractId', dir: 'asc' }] },
-    }),
-  });
+
+export async function fetchFloorsheet() {
+  return nepseApi.getFloorsheet();
 }
+
 export async function fetchSectors() {
-  return apiFetch<any[]>('/sectors');
+  return nepseApi.getSectorIndices();
 }
-export async function fetchSupplyDemand() {
-  return apiFetch<any>('/supply-demand');
-}
+
 export async function fetchBrokers() {
-  return apiFetch<any>('/brokers');
+  return nepseApi.getBrokers();
 }
+
 export async function fetchCompanyPrice(symbol: string) {
-  return apiFetch<any>(`/company-price/${symbol}`);
+  return nepseApi.getStockPrice(symbol);
 }
+
 export async function checkApiHealth() {
-  return apiFetch<{ status: string; cache_size: number }>('/health');
+  return nepseApi.health();
 }

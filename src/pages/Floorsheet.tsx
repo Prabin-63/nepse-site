@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, Download, RotateCw, AlertTriangle, Info } from 'lucide-react';
-import { fetchFloorsheet } from '../services/api';
 import { formatNepaliNumber, formatNPR, getNepalTime } from '../utils';
 
 import { useFloorsheet } from '../hooks/useNepseData';

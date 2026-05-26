@@ -10,7 +10,6 @@ import {
   RSIPanel, MACDPanel, StochasticPanel, ATRPanel,
   OBVPanel, WilliamsRPanel, VolumePanel,
 } from '../components/charts/IndicatorPanels';
-import { fetchTodayPrices, fetchGraphData, fetchCompanyPrice } from '../services/api';
 import { formatNepaliNumber, formatVolume, formatNPR, formatPercent, getPriceColorClass } from '../utils';
 import { useCompanyList, useStockChart, useStockPrice, useStockDailyChart } from '../hooks/useNepseData';
 type IndicatorId = 'volume' | 'rsi' | 'macd' | 'stochastic' | 'atr' | 'obv' | 'williams';

@@ -1,17 +1,23 @@
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-  
-  try {
-    const res = await fetch(`${BASE_URL}${path}`, { ...options, signal: controller.signal });
-    if (!res.ok) throw new Error(`API error: ${res.status} on ${path}`);
-    const json = await res.json();
-    return json.data as T;
-  } finally {
-    clearTimeout(timeout);
+async function apiFetch<T>(path: string, options?: RequestInit, retries = 2): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, { ...options, signal: controller.signal });
+      if (!res.ok) throw new Error(`API error: ${res.status} on ${path}`);
+      const json = await res.json();
+      return json.data as T;
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  throw lastError;
 }
 
 export const nepseApi = {
@@ -60,6 +66,51 @@ export const nepseApi = {
   // Brokers
   getBrokers: () => apiFetch<any[]>("/api/brokers/"),
   getBrokerDetail: (id: string) => apiFetch<any>(`/api/brokers/${id}`),
+  getBrokerBreakdown: (params: { period?: string; from?: string; to?: string; top?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    if (params.top) qs.set("top", String(params.top));
+    const tail = qs.toString();
+    return apiFetch<any>(`/api/brokers/breakdown${tail ? `?${tail}` : ""}`);
+  },
+  getBrokerTradedStock: (symbol: string, params: { period?: string; from?: string; to?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    const tail = qs.toString();
+    return apiFetch<any>(`/api/brokers/stock/${encodeURIComponent(symbol)}${tail ? `?${tail}` : ""}`);
+  },
+  getBrokerHoldings: (symbol: string, params: { period?: string; from?: string; to?: string; top?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    if (params.top) qs.set("top", String(params.top));
+    const tail = qs.toString();
+    return apiFetch<any>(`/api/brokers/holdings/${encodeURIComponent(symbol)}${tail ? `?${tail}` : ""}`);
+  },
+  getAccumulationDistribution: (params: { period?: string; from?: string; to?: string; type?: "accumulation" | "distribution" | "both"; limit?: number; min_volume?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    if (params.type) qs.set("type", params.type);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.min_volume != null) qs.set("min_volume", String(params.min_volume));
+    const tail = qs.toString();
+    return apiFetch<any>(`/api/brokers/accumulation${tail ? `?${tail}` : ""}`);
+  },
+  getBrokerProfile: (id: string, params: { period?: string; from?: string; to?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    const tail = qs.toString();
+    return apiFetch<any>(`/api/brokers/${encodeURIComponent(id)}${tail ? `?${tail}` : ""}`);
+  },
 
   // SBIE
   getBrokerMap: () => apiFetch<any>("/api/sbie/broker-map"),
