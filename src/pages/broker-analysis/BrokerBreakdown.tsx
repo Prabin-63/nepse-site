@@ -127,7 +127,7 @@ export default function BrokerBreakdown() {
                   <YAxis domain={[0, sharedMax]} tickFormatter={compactAmount} tick={{ fill: '#7B8DB0', fontSize: 10 }} tickLine={false} axisLine={false} width={48} />
                   <Tooltip content={<ChartTooltip accent={BULL} />} cursor={{ fill: 'rgba(0,196,140,0.05)' }} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={42}>
-                    {buyersChart.map((_, i: number) => (
+                    {buyersChart.map((_: any, i: number) => (
                       <Cell key={i} fill={BULL} fillOpacity={1 - i * 0.06} />
                     ))}
                     <LabelList dataKey="value" position="top" formatter={(v: any) => compactAmount(Number(v))} style={{ fill: '#E8EDF5', fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 700 }} />
@@ -158,7 +158,7 @@ export default function BrokerBreakdown() {
                   <YAxis domain={[0, sharedMax]} tickFormatter={compactAmount} tick={{ fill: '#7B8DB0', fontSize: 10 }} tickLine={false} axisLine={false} width={48} />
                   <Tooltip content={<ChartTooltip accent={BEAR} />} cursor={{ fill: 'rgba(255,77,79,0.05)' }} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={42}>
-                    {sellersChart.map((_, i: number) => (
+                    {sellersChart.map((_: any, i: number) => (
                       <Cell key={i} fill={BEAR} fillOpacity={1 - i * 0.06} />
                     ))}
                     <LabelList dataKey="value" position="top" formatter={(v: any) => compactAmount(Number(v))} style={{ fill: '#E8EDF5', fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 700 }} />

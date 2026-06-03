@@ -336,6 +336,35 @@ export default function Dashboard() {
 		};
 	}, [data]);
 
+	// ⚠️ ALL hooks must be declared before any early returns (Rules of Hooks)
+	// Prepare NEPSE index chart data using history
+	const nepseChartData = useMemo(() => {
+		const currentValue = derived?.nepseIdx?.currentValue ?? 0;
+		const change = derived?.nepseIdx?.change ?? 0;
+		const rawIdx = Array.isArray(data?.nepse_index)
+			? data.nepse_index.find((i: any) => i.index === "NEPSE Index")
+			: undefined;
+		if (rawIdx && Array.isArray(rawIdx.history) && rawIdx.history.length > 0) {
+			return rawIdx.history.map((d: any, idx: number) => {
+				let timeStr = `Point ${idx}`;
+				if (d.time) {
+					timeStr = d.time;
+				} else if (d.date) {
+					try {
+						timeStr = new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+					} catch (e) {}
+				}
+				return { time: timeStr, val: d.close || d.index || 0 };
+			});
+		}
+		// Fallback: use date field as time since mockData generates { date, close }
+		return generateMockOHLCV("NEPSE", 20, currentValue).map((d) => ({
+			time: d.date,
+			val: d.close,
+			_change: change,
+		}));
+	}, [data, derived?.nepseIdx?.currentValue]);
+
 	if (isLoading) return <DashboardSkeleton />;
 	if (isError || !derived)
 		return (
@@ -371,32 +400,6 @@ export default function Dashboard() {
 				: viewMoreList === "volume"
 					? topVolume
 					: derived.topTurnover;
-
-	// Prepare NEPSE index chart data using history
-	const nepseChartData = useMemo(() => {
-		const rawIdx = data?.nepse_index?.find((i: any) => i.index === "NEPSE Index");
-		if (rawIdx && Array.isArray(rawIdx.history) && rawIdx.history.length > 0) {
-			return rawIdx.history.map((d: any, idx: number) => {
-				let timeStr = `Point ${idx}`;
-				if (d.time) {
-					timeStr = d.time;
-				} else if (d.date) {
-					try {
-						timeStr = new Date(d.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-					} catch (e) {}
-				}
-				return {
-					time: timeStr,
-					val: d.close || d.index || 0,
-				};
-			});
-		}
-		// Fallback mock if no history from API
-		return generateMockOHLCV("NEPSE", 20, nepseIdx.currentValue).map((d) => ({
-			time: d.time,
-			val: d.close,
-		}));
-	}, [data, nepseIdx.currentValue]);
 
 	return (
 		<motion.div
