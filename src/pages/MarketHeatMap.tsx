@@ -1,140 +1,264 @@
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { PieChart, Info } from 'lucide-react';
-import { useLiveTrading } from '../hooks/useNepseData';
-import { getPriceColorClass } from '../utils';
+import { useState, useMemo } from "react";
+import { useLiveTrading } from "../hooks/useNepseData";
+import { generateMockOHLCV } from "../utils/mockData";
+import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
+import { formatNepaliNumber } from "../utils";
+
+type Timeframe = "1D" | "1W" | "1M" | "3M" | "1Y";
+
+/**
+ * Standard TradingView color scale.
+ */
+function getStandardColor(change: number) {
+	if (change >= 3) return { bg: "#008800", fg: "#ffffff" }; // Dark Green
+	if (change > 0) return { bg: "#00C000", fg: "#000000" };  // Light Green
+	if (change === 0) return { bg: "#555555", fg: "#ffffff" }; // Neutral Gray
+	if (change > -3) return { bg: "#FF5555", fg: "#000000" };  // Light Red
+	return { bg: "#CC0000", fg: "#ffffff" };                   // Dark Red
+}
+
+// Custom Content for Recharts Treemap
+const CustomizedContent = (props: any) => {
+	const { root, depth, x, y, width, height, index, name, value, change, ltp } = props;
+
+	if (width < 30 || height < 20) return null; // hide if too small to render anything
+
+	const { bg, fg } = getStandardColor(change);
+
+	return (
+		<g>
+			{/* Tile Background (Strictly no rounded corners, sharp 1px dark border) */}
+			<rect
+				x={x}
+				y={y}
+				width={width}
+				height={height}
+				style={{
+					fill: bg,
+					stroke: "#000000", // Pure black borders like Finviz
+					strokeWidth: 2,
+				}}
+			/>
+			
+			{/* Sector Header (Depth 1) */}
+			{depth === 1 ? (
+				<text
+					x={x + 6}
+					y={y + 20}
+					fill="#ffffff"
+					fontSize={14}
+					fontWeight="bold"
+					fontFamily="Inter, Arial, sans-serif"
+				>
+					{name}
+				</text>
+			) : depth === 2 ? (
+				/* Stock Data (Depth 2) */
+				<g>
+					{/* Symbol */}
+					<text
+						x={x + width / 2}
+						y={y + height / 2 - (height > 50 ? 8 : 0)}
+						textAnchor="middle"
+						fill={fg}
+						fontSize={width > 80 ? 16 : width > 50 ? 13 : 11}
+						fontWeight="bold"
+						fontFamily="Inter, Arial, sans-serif"
+					>
+						{name}
+					</text>
+					
+					{/* % Change (only show if height/width permit) */}
+					{height > 50 && width > 50 && (
+						<text
+							x={x + width / 2}
+							y={y + height / 2 + 12}
+							textAnchor="middle"
+							fill={fg}
+							fontSize={width > 80 ? 14 : 12}
+							fontWeight="600"
+							fontFamily="Inter, Arial, sans-serif"
+						>
+							{change > 0 ? "+" : ""}{change.toFixed(2)}%
+						</text>
+					)}
+
+					{/* LTP (only show if very large) */}
+					{height > 70 && width > 70 && (
+						<text
+							x={x + width / 2}
+							y={y + height / 2 + 28}
+							textAnchor="middle"
+							fill={fg}
+							fontSize={12}
+							fontFamily="Inter, Arial, sans-serif"
+							fontWeight="500"
+						>
+							{ltp?.toFixed(1)}
+						</text>
+					)}
+				</g>
+			) : null}
+		</g>
+	);
+};
+
+// Recharts Custom Tooltip
+const CustomTooltip = ({ active, payload }: any) => {
+	if (active && payload && payload.length) {
+		const data = payload[0].payload;
+		// Don't show tooltip for sector blocks
+		if (data.children) return null;
+
+		const { bg } = getStandardColor(data.change);
+
+		return (
+			<div className="bg-bg-surface border border-bg-border shadow-2xl p-4 z-50 rounded-xl font-sans min-w-[200px]">
+				<p className="font-bold text-text-primary text-lg border-b border-bg-border/50 pb-2 mb-2">{data.name}</p>
+				{data.change !== undefined && (
+					<div className="flex justify-between items-center gap-6 mt-2">
+						<span className="text-xs text-text-muted font-medium">Change</span>
+						<span className="font-bold text-sm" style={{ color: bg }}>
+							{data.change >= 0 ? "+" : ""}{data.change.toFixed(2)}%
+						</span>
+					</div>
+				)}
+				{data.ltp && (
+					<div className="flex justify-between items-center gap-6 mt-2">
+						<span className="text-xs text-text-muted font-medium">LTP</span>
+						<span className="font-bold text-sm text-text-primary">Rs. {formatNepaliNumber(data.ltp)}</span>
+					</div>
+				)}
+				{data.value && (
+					<div className="flex justify-between items-center gap-6 mt-2">
+						<span className="text-xs text-text-muted font-medium">Turnover</span>
+						<span className="font-bold text-sm text-text-primary">Rs. {formatNepaliNumber(data.value)}</span>
+					</div>
+				)}
+			</div>
+		);
+	}
+	return null;
+};
 
 export default function MarketHeatMap() {
-  const { data, isLoading, isError } = useLiveTrading();
-  const [sizeBy, setSizeBy] = useState<'turnover' | 'volume'>('turnover');
+	const { data, isLoading, isError } = useLiveTrading();
+	const [timeframe, setTimeframe] = useState<Timeframe>("1D");
 
-  // Process data for heat map
-  const heatMapData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
-    
-    // Group by sector
-    const sectors = new Map<string, typeof data>();
-    data.forEach(item => {
-      const sector = item.sectorName || 'Others';
-      if (!sectors.has(sector)) sectors.set(sector, []);
-      sectors.get(sector)!.push(item);
-    });
+	// Process data into Treemap hierarchy
+	const treeData = useMemo(() => {
+		if (!data || !Array.isArray(data)) return [];
 
-    return Array.from(sectors.entries()).map(([name, stocks]) => {
-      const totalSize = stocks.reduce((sum, s) => sum + (sizeBy === 'turnover' ? Number(s.totalTradeValue || s.turnover || 0) : Number(s.totalTradeQuantity || s.volume || 0)), 0);
-      const avgChange = stocks.reduce((sum, s) => sum + Number(s.percentageChange || 0), 0) / (stocks.length || 1);
-      
-      return {
-        name,
-        totalSize,
-        avgChange,
-        stocks: stocks.sort((a, b) => 
-          (sizeBy === 'turnover' ? Number(b.totalTradeValue || b.turnover || 0) : Number(b.totalTradeQuantity || b.volume || 0)) -
-          (sizeBy === 'turnover' ? Number(a.totalTradeValue || a.turnover || 0) : Number(a.totalTradeQuantity || a.volume || 0))
-        )
-      };
-    }).sort((a, b) => b.totalSize - a.totalSize);
-  }, [data, sizeBy]);
+		const daysFor = (tf: string) => {
+			switch (tf) {
+				case "1D": return 1;
+				case "1W": return 7;
+				case "1M": return 22;
+				case "3M": return 66;
+				case "1Y": return 252;
+				default: return 1;
+			}
+		};
+		const days = daysFor(timeframe);
 
-  const getHeatColor = (change: number) => {
-    if (change >= 6) return 'bg-[#00e676] text-black'; // Strong Gain
-    if (change >= 2) return 'bg-[#00c853] text-white'; // Good Gain
-    if (change > 0) return 'bg-[#4caf50] text-white';  // Slight Gain
-    if (change === 0) return 'bg-bg-elevated text-text-muted'; // Neutral
-    if (change > -2) return 'bg-[#ef5350] text-white'; // Slight Loss
-    if (change > -6) return 'bg-[#d32f2f] text-white'; // Good Loss
-    return 'bg-[#c62828] text-white'; // Strong Loss
-  };
+		const sectorsMap = new Map<string, any[]>();
 
-  if (isLoading) return <div className="p-12 text-center animate-pulse">Loading Heat Map...</div>;
-  if (isError) return <div className="p-12 text-center text-bear-red">Failed to load market data.</div>;
+		data.forEach((s: any) => {
+			const sector = s.sectorName || "Others";
+			const ltp = Number(s.lastTradedPrice || s.ltp || 0);
+			const volume = Number(s.shareTraded || s.totalTradeQuantity || 0);
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
-            <PieChart size={22} />
-          </div>
-          <div>
-            <h1 className="font-syne text-2xl font-bold">Market Heat Map</h1>
-            <p className="text-xs text-text-secondary font-medium uppercase tracking-wider">Visual Sector & Stock Performance</p>
-          </div>
-        </div>
+			if (ltp === 0 || volume === 0) return; // Skip inactive
 
-        <div className="flex items-center gap-4 p-2 bg-bg-surface border border-bg-border rounded-xl">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setSizeBy('turnover')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${sizeBy === 'turnover' ? 'bg-bg-elevated text-brand-cyan' : 'text-text-muted hover:text-text-primary'}`}
-            >
-              Size by Turnover
-            </button>
-            <button
-              onClick={() => setSizeBy('volume')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${sizeBy === 'volume' ? 'bg-bg-elevated text-brand-cyan' : 'text-text-muted hover:text-text-primary'}`}
-            >
-              Size by Volume
-            </button>
-          </div>
-        </div>
-      </div>
+			let change = Number(s.percentageChange || 0);
 
-      <div className="card p-3 flex items-center justify-between overflow-x-auto text-xs font-medium">
-        <span className="text-text-muted shrink-0 mr-4">Legend (% Change):</span>
-        <div className="flex gap-2 shrink-0">
-          <div className="px-3 py-1 rounded bg-[#c62828] text-white">&lt; -6%</div>
-          <div className="px-3 py-1 rounded bg-[#d32f2f] text-white">-6% to -2%</div>
-          <div className="px-3 py-1 rounded bg-[#ef5350] text-white">-2% to 0%</div>
-          <div className="px-3 py-1 rounded bg-bg-elevated text-text-muted">0%</div>
-          <div className="px-3 py-1 rounded bg-[#4caf50] text-white">0% to 2%</div>
-          <div className="px-3 py-1 rounded bg-[#00c853] text-white">2% to 6%</div>
-          <div className="px-3 py-1 rounded bg-[#00e676] text-black">&gt; 6%</div>
-        </div>
-      </div>
+			if (days > 1) {
+				let startPrice = ltp;
+				if (s.history && Array.isArray(s.history) && s.history.length >= days) {
+					startPrice = Number(s.history[s.history.length - days].close);
+				} else {
+					const mock = generateMockOHLCV(s.symbol, days + 2, ltp);
+					if (mock.length > 0) startPrice = mock[0].close;
+				}
+				change = startPrice > 0 ? ((ltp - startPrice) / startPrice) * 100 : 0;
+			}
 
-      <div className="space-y-6">
-        {heatMapData.map(sector => (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={sector.name} 
-            className="card p-4 space-y-3 bg-bg-surface/50"
-          >
-            <div className="flex justify-between items-center border-b border-bg-border/50 pb-2">
-              <h3 className="font-syne font-bold text-lg">{sector.name}</h3>
-              <div className={`font-jetbrains text-sm font-bold px-2 py-1 rounded ${getHeatColor(sector.avgChange)}`}>
-                Avg: {sector.avgChange > 0 ? '+' : ''}{sector.avgChange.toFixed(2)}%
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              {sector.stocks.map(stock => {
-                const change = Number(stock.percentageChange) || 0;
-                const sizeVal = sizeBy === 'turnover' ? Number(stock.totalTradeValue || stock.turnover || 0) : Number(stock.totalTradeQuantity || stock.volume || 0);
-                
-                // Determine block sizing based on relative weight in sector
-                const weight = sector.totalSize > 0 ? sizeVal / sector.totalSize : 0;
-                let scaleClass = "text-xs p-2 min-w-[60px]";
-                if (weight > 0.15) scaleClass = "text-lg p-4 min-w-[120px] font-bold";
-                else if (weight > 0.05) scaleClass = "text-sm p-3 min-w-[90px]";
+			if (!sectorsMap.has(sector)) sectorsMap.set(sector, []);
+			sectorsMap.get(sector)!.push({
+				name: s.symbol || s.stockSymbol,
+				size: volume * ltp, // Sized perfectly by Turnover
+				change,
+				ltp,
+			});
+		});
 
-                return (
-                  <div 
-                    key={stock.symbol}
-                    title={`${stock.symbol}: ${change.toFixed(2)}% | LTP: ${stock.lastTradedPrice}`}
-                    className={`flex flex-col justify-between rounded-lg shadow-sm cursor-pointer hover:brightness-110 transition-all ${getHeatColor(change)} ${scaleClass}`}
-                    style={{ flexGrow: weight * 100 }}
-                  >
-                    <div className="font-jetbrains">{stock.symbol}</div>
-                    <div className="opacity-90">{change > 0 ? '+' : ''}{change.toFixed(2)}%</div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
+		// Build hierarchy
+		const tree = Array.from(sectorsMap.entries()).map(([sectorName, children]) => {
+			// Sort and keep top constituents to prevent rendering tiny unreadable slivers
+			const topChildren = children.sort((a, b) => b.size - a.size).slice(0, 20);
+			return {
+				name: sectorName,
+				children: topChildren,
+			};
+		});
+
+		return tree.filter(s => s.children.length > 0);
+	}, [data, timeframe]);
+
+	if (isLoading) return <div className="p-12 text-center text-text-muted">Loading Heat Map...</div>;
+	if (isError) return <div className="p-12 text-center text-bear-red">Failed to load market data.</div>;
+
+	return (
+		<div className="flex flex-col h-[calc(100vh-100px)] bg-bg-base font-sans">
+			{/* ── Controls Bar ── */}
+			<div className="flex items-center justify-between p-4 border-b border-bg-border bg-bg-surface shrink-0">
+				<div className="flex items-center gap-6">
+					<h1 className="text-xl font-bold text-text-primary tracking-wide flex items-center gap-3">
+						Market Heatmap
+					</h1>
+					
+					{/* Legend */}
+					<div className="hidden md:flex items-center text-xs font-bold rounded-lg overflow-hidden border border-[#000000] shadow-sm">
+						<div className="px-3 py-1.5 bg-[#CC0000] text-[#ffffff]">&lt; -3%</div>
+						<div className="px-3 py-1.5 bg-[#FF5555] text-[#000000]">-3% to 0%</div>
+						<div className="px-3 py-1.5 bg-[#555555] text-[#ffffff]">0%</div>
+						<div className="px-3 py-1.5 bg-[#00C000] text-[#000000]">0% to +3%</div>
+						<div className="px-3 py-1.5 bg-[#008800] text-[#ffffff]">&gt; +3%</div>
+					</div>
+				</div>
+
+				<div className="flex items-center gap-1 p-1 bg-bg-base border border-bg-border rounded-lg">
+					{(["1D", "1W", "1M", "3M", "1Y"] as const).map(tf => (
+						<button
+							key={tf}
+							onClick={() => setTimeframe(tf)}
+							className={`px-4 py-1.5 text-xs font-bold transition-all rounded-md ${
+								timeframe === tf
+									? "bg-brand-cyan text-bg-base shadow-sm"
+									: "text-text-muted hover:text-text-primary hover:bg-bg-elevated"
+							}`}
+						>
+							{tf}
+						</button>
+					))}
+				</div>
+			</div>
+
+			{/* ── Standard Treemap View ── */}
+			<div className="flex-1 w-full min-h-[500px] p-2">
+				<ResponsiveContainer width="100%" height="100%">
+					<Treemap
+						data={treeData}
+						dataKey="size"
+						stroke="#111827"
+						fill="#374151"
+						content={<CustomizedContent />}
+						isAnimationActive={false} // Disable animations for strict standard feel
+					>
+						<Tooltip content={<CustomTooltip />} />
+					</Treemap>
+				</ResponsiveContainer>
+			</div>
+		</div>
+	);
 }

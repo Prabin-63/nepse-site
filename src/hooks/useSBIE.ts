@@ -58,8 +58,10 @@ function useSBIEBaseData() {
         nepseApi.getLiveTrading(),
       ]);
 
+      const validLivePrices = Array.isArray(livePrices) ? livePrices : [];
+
       const priceMap: Record<string, LivePrice> = {};
-      for (const p of (livePrices || [])) {
+      for (const p of validLivePrices) {
         if (p.symbol) priceMap[p.symbol] = p;
       }
 
@@ -68,7 +70,7 @@ function useSBIEBaseData() {
 
       return {
         floorsheet: resolved.data,
-        livePrices: livePrices || [],
+        livePrices: validLivePrices,
         priceMap,
         profiles,
         smartFlags,

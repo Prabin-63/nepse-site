@@ -54,6 +54,10 @@ export default function NewsAlerts() {
                 {cat}
               </button>
             ))}
+            <div className="ml-auto text-[10px] text-text-muted flex items-center gap-1 uppercase tracking-wider font-bold">
+              <span>Sourced from</span>
+              <span className="text-brand-cyan">ShareSansar</span> & <span className="text-brand-gold">Nepali Paisa</span>
+            </div>
           </div>
           <div className="space-y-3">
             {isLoading && (
@@ -72,19 +76,25 @@ export default function NewsAlerts() {
                 <div className="flex items-start gap-4">
                   <div className={`w-1 self-stretch rounded-full shrink-0 ${n.sentiment === 'positive' ? 'bg-bull-green' : 'bg-bear-red'}`} />
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
                         n.sentiment === 'positive' ? 'bg-bull-green/10 text-bull-green' : 'bg-bear-red/10 text-bear-red'
                       }`}>{n.category}</span>
-                      <span className="text-[10px] text-text-muted">{n.source} • {n.date}</span>
+                      <span className="text-[10px] text-text-muted font-jetbrains">{n.source || 'ShareSansar'} • {n.date}</span>
                     </div>
-                    <a href={n.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-text-primary group-hover:text-brand-cyan transition-colors line-clamp-2">
+                    {/* font-sans with increased line-height and size for Devanagari readability */}
+                    <a href={n.url} target="_blank" rel="noreferrer" className="text-base leading-relaxed font-medium text-text-primary group-hover:text-brand-cyan transition-colors line-clamp-2" style={{ fontFamily: '"Mukta", "Kalimati", sans-serif' }}>
                       {n.headline}
                     </a>
                   </div>
                 </div>
               </motion.div>
             ))}
+            {filtered.length === 0 && !isLoading && (
+              <div className="p-8 text-center text-text-muted text-sm border border-dashed border-bg-border rounded-xl">
+                No news found for this category.
+              </div>
+            )}
           </div>
         </div>
       )}
