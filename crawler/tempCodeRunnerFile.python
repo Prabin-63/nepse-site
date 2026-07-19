@@ -1,0 +1,9 @@
+import pandas as pd
+
+df = pd.read_csv("nepse_index.csv")
+
+print(df.head())
+print()
+print(df.dtypes)
+print()
+print(df.isnull().sum())
